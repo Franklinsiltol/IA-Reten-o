@@ -1,116 +1,158 @@
-<!-- Frontend.html -->
 <!DOCTYPE html>
 <html>
 <head>
   <base target="_top">
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Chatbot SumUp</title>
   <style>
     :root {
-      --primary: #000000;
-      --secondary: #ffffff;
+      --cor-primaria: #000000;
+      --cor-secundaria: #FFFFFF;
+      --cor-fundo: #F5F5F5;
     }
     body {
-      font-family: 'Arial', sans-serif;
-      background: var(--secondary);
-      color: var(--primary);
+      font-family: 'Segoe UI', Arial, sans-serif;
+      background: var(--cor-secundaria);
+      color: var(--cor-primaria);
       max-width: 600px;
       margin: 0 auto;
       padding: 20px;
+      line-height: 1.6;
     }
     #chat-container {
       height: 70vh;
-      border: 2px solid var(--primary);
+      border: 2px solid var(--cor-primaria);
+      border-radius: 8px;
       overflow-y: auto;
       padding: 15px;
       margin-bottom: 15px;
+      background: var(--cor-fundo);
       display: flex;
       flex-direction: column;
+      gap: 10px;
     }
-    .message {
+    .mensagem {
       max-width: 80%;
       padding: 10px 15px;
-      margin: 5px 0;
       border-radius: 18px;
+      animation: fadeIn 0.3s ease;
     }
-    .user-message {
+    @keyframes fadeIn {
+      from { opacity: 0; transform: translateY(10px); }
+      to { opacity: 1; transform: translateY(0); }
+    }
+    .mensagem-usuario {
       align-self: flex-end;
-      background: var(--primary);
-      color: var(--secondary);
+      background: var(--cor-primaria);
+      color: var(--cor-secundaria);
     }
-    .bot-message {
+    .mensagem-bot {
       align-self: flex-start;
-      background: #f1f1f1;
-      border: 1px solid var(--primary);
+      background: var(--cor-secundaria);
+      border: 1px solid var(--cor-primaria);
+    }
+    .fonte-resposta {
+      font-size: 0.75em;
+      color: #666;
+      text-align: right;
+      margin-top: 5px;
     }
     #input-container {
       display: flex;
       gap: 10px;
     }
-    #user-input {
+    #campo-input {
       flex-grow: 1;
       padding: 12px;
-      border: 2px solid var(--primary);
+      border: 2px solid var(--cor-primaria);
+      border-radius: 8px;
+      font-size: 16px;
     }
-    button {
-      background: var(--primary);
-      color: var(--secondary);
+    #botao-enviar {
+      background: var(--cor-primaria);
+      color: var(--cor-secundaria);
       border: none;
-      padding: 0 20px;
+      padding: 0 25px;
+      border-radius: 8px;
       cursor: pointer;
       font-weight: bold;
+      transition: opacity 0.2s;
     }
-    .source-badge {
-      font-size: 0.8em;
-      color: #666;
-      text-align: right;
-      margin-top: 5px;
+    #botao-enviar:hover {
+      opacity: 0.9;
+    }
+    #botao-enviar:disabled {
+      opacity: 0.5;
+      cursor: not-allowed;
     }
   </style>
 </head>
 <body>
+  <h1>Chatbot SumUp</h1>
   <div id="chat-container"></div>
   <div id="input-container">
-    <input type="text" id="user-input" placeholder="Digite sua mensagem..." autofocus>
-    <button onclick="sendMessage()">Enviar</button>
+    <input type="text" id="campo-input" placeholder="Digite sua pergunta..." autofocus>
+    <button id="botao-enviar" onclick="enviarMensagem()">Enviar</button>
   </div>
 
   <script>
-    function sendMessage() {
-      const input = document.getElementById('user-input');
-      const message = input.value.trim();
+    function enviarMensagem() {
+      const input = document.getElementById('campo-input');
+      const mensagem = input.value.trim();
+      const botao = document.getElementById('botao-enviar');
       
-      if (!message) return;
+      if (!mensagem) return;
       
-      addMessage(message, 'user');
+      // Exibe a mensagem do usuário
+      exibirMensagem(mensagem, 'usuario');
       input.value = '';
+      botao.disabled = true;
       
+      // Envia para o backend
       google.script.run
-        .withSuccessHandler(response => {
-          addMessage(response.response, 'bot');
-          // Adiciona badge de origem
-          const badge = document.createElement('div');
-          badge.className = 'source-badge';
-          badge.textContent = `Fonte: ${response.source === 'sheet' ? 'Base de Dados' : 'Gemini AI'}`;
-          document.querySelector('#chat-container .bot-message:last-child').appendChild(badge);
+        .withSuccessHandler(resposta => {
+          exibirMensagem(
+            resposta.resposta, 
+            'bot', 
+            resposta.fonte
+          );
+          botao.disabled = false;
+          input.focus();
         })
-        .withFailureHandler(error => {
-          addMessage('Erro ao conectar com o servidor', 'bot');
+        .withFailureHandler(erro => {
+          exibirMensagem(
+            "Erro ao processar sua pergunta. Recarregue a página e tente novamente.", 
+            'bot', 
+            'erro'
+          );
+          botao.disabled = false;
+          console.error(erro);
         })
-        .getGeminiResponse(message);
+        .processarPergunta(mensagem);
     }
 
-    function addMessage(text, sender) {
-      const container = document.getElementById('chat-container');
-      const messageDiv = document.createElement('div');
+    function exibirMensagem(texto, remetente, fonte) {
+      const chat = document.getElementById('chat-container');
+      const mensagemDiv = document.createElement('div');
       
-      messageDiv.className = `message ${sender}-message`;
-      messageDiv.textContent = text;
+      mensagemDiv.className = `mensagem mensagem-${remetente}`;
+      mensagemDiv.textContent = texto;
       
-      container.appendChild(messageDiv);
-      container.scrollTop = container.scrollHeight;
+      if (remetente === 'bot' && fonte) {
+        const fonteDiv = document.createElement('div');
+        fonteDiv.className = 'fonte-resposta';
+        fonteDiv.textContent = `Fonte: ${fonte === 'planilha' ? 'Base de Dados' : 'IA Generativa'}`;
+        mensagemDiv.appendChild(fonteDiv);
+      }
+      
+      chat.appendChild(mensagemDiv);
+      chat.scrollTop = chat.scrollHeight;
     }
 
-    document.getElementById('user-input').addEventListener('keypress', (e) => {
-      if (e.key === 'Enter') sendMessage();
+    // Enviar com Enter
+    document.getElementById('campo-input').addEventListener('keypress', (e) => {
+      if (e.key === 'Enter') enviarMensagem();
     });
   </script>
 </body>
