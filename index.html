@@ -1,0 +1,117 @@
+<!-- Frontend.html -->
+<!DOCTYPE html>
+<html>
+<head>
+  <base target="_top">
+  <style>
+    :root {
+      --primary: #000000;
+      --secondary: #ffffff;
+    }
+    body {
+      font-family: 'Arial', sans-serif;
+      background: var(--secondary);
+      color: var(--primary);
+      max-width: 600px;
+      margin: 0 auto;
+      padding: 20px;
+    }
+    #chat-container {
+      height: 70vh;
+      border: 2px solid var(--primary);
+      overflow-y: auto;
+      padding: 15px;
+      margin-bottom: 15px;
+      display: flex;
+      flex-direction: column;
+    }
+    .message {
+      max-width: 80%;
+      padding: 10px 15px;
+      margin: 5px 0;
+      border-radius: 18px;
+    }
+    .user-message {
+      align-self: flex-end;
+      background: var(--primary);
+      color: var(--secondary);
+    }
+    .bot-message {
+      align-self: flex-start;
+      background: #f1f1f1;
+      border: 1px solid var(--primary);
+    }
+    #input-container {
+      display: flex;
+      gap: 10px;
+    }
+    #user-input {
+      flex-grow: 1;
+      padding: 12px;
+      border: 2px solid var(--primary);
+    }
+    button {
+      background: var(--primary);
+      color: var(--secondary);
+      border: none;
+      padding: 0 20px;
+      cursor: pointer;
+      font-weight: bold;
+    }
+    .source-badge {
+      font-size: 0.8em;
+      color: #666;
+      text-align: right;
+      margin-top: 5px;
+    }
+  </style>
+</head>
+<body>
+  <div id="chat-container"></div>
+  <div id="input-container">
+    <input type="text" id="user-input" placeholder="Digite sua mensagem..." autofocus>
+    <button onclick="sendMessage()">Enviar</button>
+  </div>
+
+  <script>
+    function sendMessage() {
+      const input = document.getElementById('user-input');
+      const message = input.value.trim();
+      
+      if (!message) return;
+      
+      addMessage(message, 'user');
+      input.value = '';
+      
+      google.script.run
+        .withSuccessHandler(response => {
+          addMessage(response.response, 'bot');
+          // Adiciona badge de origem
+          const badge = document.createElement('div');
+          badge.className = 'source-badge';
+          badge.textContent = `Fonte: ${response.source === 'sheet' ? 'Base de Dados' : 'Gemini AI'}`;
+          document.querySelector('#chat-container .bot-message:last-child').appendChild(badge);
+        })
+        .withFailureHandler(error => {
+          addMessage('Erro ao conectar com o servidor', 'bot');
+        })
+        .getGeminiResponse(message);
+    }
+
+    function addMessage(text, sender) {
+      const container = document.getElementById('chat-container');
+      const messageDiv = document.createElement('div');
+      
+      messageDiv.className = `message ${sender}-message`;
+      messageDiv.textContent = text;
+      
+      container.appendChild(messageDiv);
+      container.scrollTop = container.scrollHeight;
+    }
+
+    document.getElementById('user-input').addEventListener('keypress', (e) => {
+      if (e.key === 'Enter') sendMessage();
+    });
+  </script>
+</body>
+</html>
