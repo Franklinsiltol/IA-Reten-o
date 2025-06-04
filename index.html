@@ -3,16 +3,16 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Assistente SumUp</title>
+    <title>Assistente SumUp Retenção</title>
     <style>
         body {
             font-family: Arial, sans-serif;
             margin: 0;
             padding: 0;
             background: #f5f5f5;
-            height: 100vh;
             display: flex;
             flex-direction: column;
+            height: 100vh;
         }
         header {
             background: #000;
@@ -56,13 +56,13 @@
             display: flex;
             border-top: 1px solid #eee;
         }
-        #input {
+        #user-input {
             flex: 1;
             padding: 10px 15px;
             border: 1px solid #ddd;
             border-radius: 20px;
         }
-        #send {
+        #send-btn {
             background: #000;
             color: white;
             border: none;
@@ -70,6 +70,11 @@
             padding: 0 20px;
             margin-left: 10px;
             cursor: pointer;
+        }
+        .error {
+            color: #d32f2f;
+            text-align: center;
+            padding: 10px;
         }
     </style>
 </head>
@@ -81,85 +86,113 @@
     <div id="chat">
         <div id="messages"></div>
         <div id="input-area">
-            <input type="text" id="input" placeholder="Digite sua pergunta...">
-            <button id="send">Enviar</button>
+            <input type="text" id="user-input" placeholder="Digite sua pergunta...">
+            <button id="send-btn">Enviar</button>
         </div>
     </div>
 
     <script>
-        // Cole a URL que você copiou do Apps Script aqui
-        const API_URL = "COLE_SUA_URL_DO_APPS_SCRIPT_AQUI";
-        let knowledge = [];
+        // Configuração - SUBSTITUA pela sua URL do Apps Script
+        const API_URL = "https://script.google.com/macros/s/AKfycbw-YHUWWUmKUFDOrDIS6pklj_WL0QfnqgxZcDOJXQy8Csm2XE1JhCZhNqATnB-gLoqZdQ/exec";
         
-        // Inicia o chat
-        async function startChat() {
-            addMessage("Olá! Sou o Assistente SumUp. Carregando informações...", "bot");
+        // Elementos da interface
+        const messagesDiv = document.getElementById('messages');
+        const userInput = document.getElementById('user-input');
+        const sendBtn = document.getElementById('send-btn');
+        
+        // Variáveis globais
+        let knowledgeBase = [];
+        
+        // Quando a página carrega
+        window.onload = async function() {
+            addMessage("Assistente SumUp", "Olá! Estou carregando as informações...", 'bot');
             
             try {
+                // Carrega a base de conhecimento
                 const response = await fetch(API_URL);
                 const data = await response.json();
                 
-                if (data.status === "success") {
-                    knowledge = data.data;
-                    addMessage("Pronto! Como posso ajudar com retenção de clientes?", "bot");
+                if (data.status === 'success') {
+                    knowledgeBase = data.data;
+                    addMessage("Assistente SumUp", "Pronto! Como posso ajudar com retenção de clientes?", 'bot');
                 } else {
-                    throw new Error("Erro nos dados");
+                    throw new Error(data.message || 'Erro ao carregar dados');
                 }
             } catch (error) {
-                addMessage("⚠️ Estou com acesso limitado. Algumas respostas podem não estar atualizadas.", "bot");
+                console.error("Erro:", error);
+                addMessage("Sistema", "⚠️ Não consegui conectar com a base de dados. Tente atualizar a página.", 'bot');
             }
             
-            document.getElementById("send").onclick = sendMessage;
-            document.getElementById("input").onkeypress = function(e) {
-                if (e.key === "Enter") sendMessage();
+            // Configura eventos
+            sendBtn.onclick = sendMessage;
+            userInput.onkeypress = function(e) {
+                if (e.key === 'Enter') sendMessage();
             };
-        }
+        };
         
-        // Envia mensagem
+        // Envia mensagem do usuário
         function sendMessage() {
-            const input = document.getElementById("input");
-            const text = input.value.trim();
+            const question = userInput.value.trim();
+            if (!question) return;
             
-            if (!text) return;
+            addMessage("Você", question, 'user');
+            userInput.value = '';
             
-            addMessage(text, "user");
-            input.value = "";
-            
+            // Processa a pergunta
             setTimeout(() => {
-                const answer = getAnswer(text);
-                addMessage(answer, "bot");
-            }, 800);
+                const answer = findAnswer(question);
+                addMessage("Assistente SumUp", answer, 'bot');
+            }, 500);
         }
         
-        // Encontra resposta
-        function getAnswer(question) {
-            if (knowledge.length === 0) {
-                return "Desculpe, não consegui carregar minhas informações. Tente mais tarde.";
+        // Encontra a melhor resposta
+        function findAnswer(question) {
+            if (knowledgeBase.length === 0) {
+                return "Desculpe, não consegui carregar minha base de conhecimento. Por favor, tente novamente mais tarde.";
             }
             
-            const cleanQ = question.toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "");
+            const cleanQuestion = question.toLowerCase()
+                .normalize("NFD").replace(/[\u0300-\u036f]/g, "")
+                .replace(/[^\w\s]/g, '');
             
-            for (const item of knowledge) {
-                const cleanItem = item.question.toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "");
-                if (cleanItem.includes(cleanQ) || cleanQ.includes(cleanItem)) {
-                    return item.answer;
-                }
-            }
+            // 1. Tenta encontrar correspondência exata
+            const exactMatch = knowledgeBase.find(item => 
+                item.question === cleanQuestion
+            );
             
-            return "Não encontrei informações sobre isso. Pergunte sobre retenção, cancelamentos ou fidelização.";
+            if (exactMatch) return exactMatch.answer;
+            
+            // 2. Tenta encontrar correspondência parcial
+            const partialMatch = knowledgeBase.find(item => 
+                cleanQuestion.includes(item.question) || 
+                item.question.includes(cleanQuestion)
+            );
+            
+            if (partialMatch) return partialMatch.answer;
+            
+            // 3. Se não encontrar
+            return "Não encontrei informações sobre isso. Você pode perguntar sobre:\n- Redução de cancelamentos\n- Programas de fidelização\n- Retenção de clientes";
         }
         
         // Adiciona mensagem no chat
-        function addMessage(text, sender) {
-            const div = document.createElement("div");
-            div.className = `msg ${sender}`;
-            div.textContent = text;
-            document.getElementById("messages").appendChild(div);
-            document.getElementById("messages").scrollTop = document.getElementById("messages").scrollHeight;
+        function addMessage(author, text, type) {
+            const msgDiv = document.createElement('div');
+            msgDiv.className = `msg ${type}`;
+            
+            const authorSpan = document.createElement('span');
+            authorSpan.style.fontWeight = 'bold';
+            authorSpan.textContent = `${author}: `;
+            
+            const textSpan = document.createElement('span');
+            textSpan.textContent = text;
+            
+            msgDiv.appendChild(authorSpan);
+            msgDiv.appendChild(textSpan);
+            messagesDiv.appendChild(msgDiv);
+            
+            // Rolagem automática
+            messagesDiv.scrollTop = messagesDiv.scrollHeight;
         }
-        
-        // Inicia quando a página carrega
-        window.onload = startChat;
     </script>
 </body>
 </html>
