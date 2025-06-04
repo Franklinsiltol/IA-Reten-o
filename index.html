@@ -147,10 +147,6 @@
             30% { transform: translateY(-5px); }
         }
 
-        .hidden {
-            display: none;
-        }
-
         footer {
             text-align: center;
             padding: 0.5rem;
@@ -193,9 +189,9 @@
         const CONFIG = {
             SHEET_ID: "1pgoYg76gutqLnOlsk3mN40HfzN9n-x_6oJQcfkZEBzY",
             SHEET_NAME: "BaseRespostas",
-            CACHE_TTL: 24 * 60 * 60 * 1000, // 24 horas em milissegundos
-            SIMILARITY_THRESHOLD: 0.7, // Limiar de similaridade para considerar uma correspondência
-            MAX_HISTORY: 5 // Número máximo de interações anteriores a considerar para contexto
+            CACHE_TTL: 24 * 60 * 60 * 1000,
+            SIMILARITY_THRESHOLD: 0.65,
+            MAX_HISTORY: 5
         };
 
         // Elementos da interface
@@ -238,16 +234,23 @@
                 // Se não há cache válido, carrega da planilha
                 const url = `https://docs.google.com/spreadsheets/d/${CONFIG.SHEET_ID}/gviz/tq?tqx=out:csv&sheet=${CONFIG.SHEET_NAME}`;
                 const response = await fetch(url);
-                const csvData = await response.text();
+                let csvData = await response.text();
                 
-                // Processa o CSV
+                // Processa o CSV - tratamento especial para seu formato
+                csvData = csvData.replace(/""/g, '"'); // Remove aspas duplas
                 const rows = csvData.split('\n').slice(1); // Ignora o cabeçalho
+                
                 knowledgeBase = rows.map(row => {
-                    const [question, answer] = row.split('","').map(cell => 
-                        cell.replace(/^"|"$/g, '').trim()
-                    );
-                    return { question, answer };
-                }).filter(entry => entry.question && entry.answer);
+                    // Tratamento especial para quebras de linha e tabulação
+                    const parts = row.split('\t');
+                    if (parts.length >= 2) {
+                        return {
+                            question: parts[0].replace(/^"|"$/g, '').trim(),
+                            answer: parts[1].replace(/^"|"$/g, '').trim()
+                        };
+                    }
+                    return null;
+                }).filter(entry => entry && entry.question && entry.answer);
                 
                 // Atualiza o cache
                 localStorage.setItem('knowledgeBase', JSON.stringify(knowledgeBase));
@@ -255,7 +258,7 @@
                 console.log('Dados carregados da planilha e armazenados em cache');
             } catch (error) {
                 console.error('Erro ao carregar a base de conhecimento:', error);
-                addBotMessage("Desculpe, estou tendo problemas para acessar minha base de conhecimento. Por favor, tente novamente mais tarde.");
+                addBotMessage("Estou atualizando meu conhecimento. Por favor, tente novamente em alguns instantes.");
             }
         }
 
@@ -305,7 +308,16 @@
                 // Pré-processamento da mensagem
                 const processedMessage = preprocessText(message);
                 
-                // Encontra a melhor correspondência na base de conhecimento
+                // Primeiro verifica correspondência exata
+                const exactMatch = knowledgeBase.find(entry => 
+                    preprocessText(entry.question) === processedMessage
+                );
+                
+                if (exactMatch) {
+                    return personalizeResponse(exactMatch.answer, message);
+                }
+                
+                // Se não encontrou exata, verifica similaridade
                 const bestMatch = findBestMatch(processedMessage);
                 
                 if (bestMatch && bestMatch.score >= CONFIG.SIMILARITY_THRESHOLD) {
@@ -348,15 +360,19 @@
             return bestMatch;
         }
 
-        // Calcula similaridade entre strings (usando Jaccard similarity)
+        // Calcula similaridade entre strings (usando Jaccard similarity aprimorado)
         function calculateSimilarity(str1, str2) {
-            const set1 = new Set(str1.split(' '));
-            const set2 = new Set(str2.split(' '));
+            const words1 = str1.split(' ');
+            const words2 = str2.split(' ');
             
-            const intersection = new Set([...set1].filter(word => set2.has(word)));
-            const union = new Set([...set1, ...set2]);
+            // Peso maior para palavras completas
+            const intersection = words1.filter(word => 
+                words2.includes(word) && word.length > 3
+            ).length;
             
-            return intersection.size / union.size;
+            const union = new Set([...words1, ...words2]).size;
+            
+            return union > 0 ? intersection / union : 0;
         }
 
         // Personaliza a resposta com base na pergunta original
