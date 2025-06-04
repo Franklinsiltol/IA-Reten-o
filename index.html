@@ -6,7 +6,6 @@
     <title>NeuroAssist - Assistente Inteligente</title>
     <script src="https://cdn.jsdelivr.net/npm/fuse.js@6.6.2"></script>
     <script src="https://cdn.jsdelivr.net/npm/@xenova/transformers@2.6.0"></script>
-    <script src="https://cdn.jsdelivr.net/npm/vectordb@0.1.0/dist/vectordb.umd.js"></script>
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
     <style>
         :root {
@@ -18,7 +17,6 @@
             --accent: #4CAF50;
             --primary: #007BFF;
             --error: #F44336;
-            --warning: #FF9800;
         }
 
         * {
@@ -94,7 +92,7 @@
         }
 
         .status-dot.loading {
-            background-color: var(--warning);
+            background-color: #FF9800;
             animation: pulse 1.5s infinite;
         }
 
@@ -303,26 +301,31 @@
             padding: 0.5rem 1rem;
         }
 
-        .confidence-badge {
-            display: inline-block;
-            padding: 2px 6px;
+        .model-loading-progress {
+            padding: 0.5rem 1rem;
+            font-size: 0.8em;
+            color: var(--light-gray);
+            display: flex;
+            flex-direction: column;
+            gap: 0.25rem;
+        }
+
+        .progress-container {
+            width: 100%;
+            background-color: var(--black);
             border-radius: 4px;
-            font-size: 0.7em;
-            margin-left: 8px;
-            background-color: var(--medium-gray);
-            color: var(--white);
+            overflow: hidden;
         }
 
-        .confidence-high {
+        .progress-bar {
+            height: 4px;
             background-color: var(--accent);
+            transition: width 0.3s ease;
         }
 
-        .confidence-medium {
-            background-color: var(--warning);
-        }
-
-        .confidence-low {
-            background-color: var(--error);
+        .model-status {
+            display: flex;
+            justify-content: space-between;
         }
 
         @media (max-width: 768px) {
@@ -376,12 +379,21 @@
                     </svg>
                 </button>
             </div>
+            <div id="modelLoadingProgress" class="model-loading-progress" style="display: none;">
+                <div class="model-status">
+                    <span id="modelStatusText">Carregando modelo avançado...</span>
+                    <span id="modelProgressText">0%</span>
+                </div>
+                <div class="progress-container">
+                    <div id="modelProgressBar" class="progress-bar" style="width: 0%"></div>
+                </div>
+            </div>
             <div id="autoUpdateStatus" class="auto-update-status"></div>
         </div>
     </div>
 
     <script>
-        // Configurações avançadas
+        // Configurações
         const CONFIG = {
             SHEET_ID: "1pgoYg76gutqLnOlsk3mN40HfzN9n-x_6oJQcfkZEBzY",
             SHEET_NAME: "BaseRespostas",
@@ -390,12 +402,9 @@
             STORE_NAME: "KnowledgeBase",
             DATA_KEY: "qaData",
             LAST_UPDATE_KEY: "lastUpdate",
-            EMBEDDINGS_KEY: "qaEmbeddings",
-            MODEL_NAME: "Xenova/all-MiniLM-L6-v2", // Modelo leve para embeddings
-            SIMILARITY_THRESHOLD: 0.75, // Limiar de similaridade para aceitar resposta
-            MAX_RESULTS: 3, // Máximo de resultados a retornar
-            TEXT_SEARCH_THRESHOLD: 0.4, // Limiar para busca textual
-            MODEL_LOAD_TIMEOUT: 30000 // 30 segundos para carregar o modelo
+            MODEL_KEY: "miniLMv6",
+            MODEL_NAME: "Xenova/all-MiniLM-L6-v2",
+            MODEL_REVISION: "f8b5c6b0a0b5e5e5e5e5e5e5e5e5e5e5e5e5e5e5"
         };
 
         // Elementos da interface
@@ -407,6 +416,10 @@
         const autoUpdateStatus = document.getElementById('autoUpdateStatus');
         const updateBanner = document.getElementById('updateBanner');
         const refreshLink = document.getElementById('refreshLink');
+        const modelLoadingProgress = document.getElementById('modelLoadingProgress');
+        const modelStatusText = document.getElementById('modelStatusText');
+        const modelProgressText = document.getElementById('modelProgressText');
+        const modelProgressBar = document.getElementById('modelProgressBar');
 
         // Variáveis globais
         let db;
@@ -415,8 +428,9 @@
         let lastUpdateHash = "";
         let autoUpdateInterval;
         let pipeline = null;
-        let vectorDB = new VectorDB();
         let modelLoaded = false;
+        let modelLoading = false;
+        let conversationHistory = [];
 
         class ChatBot {
             constructor() {
@@ -426,14 +440,14 @@
             async init() {
                 await this.openDatabase();
                 await this.loadInitialData();
-                await this.loadModel(); // Carrega o modelo de IA
                 this.setupEventListeners();
                 this.startAutoUpdate();
+                this.startModelLoading(); // Inicia o carregamento do modelo em segundo plano
             }
 
             async openDatabase() {
                 return new Promise((resolve, reject) => {
-                    const request = indexedDB.open(CONFIG.DB_NAME, 3); // Versão incrementada
+                    const request = indexedDB.open(CONFIG.DB_NAME, 3);
                     
                     request.onupgradeneeded = (event) => {
                         const db = event.target.result;
@@ -462,16 +476,7 @@
                         qaData = data;
                         lastUpdateHash = hash;
                         this.initSearchEngine();
-                        
-                        // Tenta carregar embeddings existentes
-                        const embeddings = await this.loadEmbeddingsFromDB();
-                        if (embeddings && embeddings.length > 0) {
-                            vectorDB.load(embeddings);
-                            this.updateStatus(`Pronto com ${qaData.length} respostas`, 'success');
-                        } else {
-                            this.updateStatus(`Pronto (busca textual)`, 'success');
-                        }
-                        
+                        this.updateStatus(`Pronto com ${qaData.length} respostas`, 'success');
                         this.addBotMessage("Olá! Como posso ajudar você hoje?");
                     } else {
                         await this.fetchAndUpdateData();
@@ -481,46 +486,6 @@
                     this.updateStatus("Erro ao carregar dados", 'error');
                     await this.fetchAndUpdateData();
                 }
-            }
-
-            async loadModel() {
-                this.updateStatus("Carregando IA...", 'loading');
-                
-                try {
-                    // Timeout para carregamento do modelo
-                    const modelTimeout = setTimeout(() => {
-                        if (!modelLoaded) {
-                            this.updateStatus("Modelo lento - usando básico", 'warning');
-                            console.warn("Timeout ao carregar modelo");
-                        }
-                    }, CONFIG.MODEL_LOAD_TIMEOUT);
-
-                    // Carrega o pipeline de embeddings
-                    const { pipeline: transformersPipeline } = await import('https://cdn.jsdelivr.net/npm/@xenova/transformers@2.6.0');
-                    pipeline = await transformersPipeline(
-                        'feature-extraction', 
-                        CONFIG.MODEL_NAME,
-                        { quantized: true, progress_callback: this.modelLoadProgress.bind(this) }
-                    );
-                    
-                    clearTimeout(modelTimeout);
-                    modelLoaded = true;
-                    
-                    // Reconstrói o VectorDB se tivermos dados
-                    if (qaData.length > 0) {
-                        await this.buildVectorDB();
-                    }
-                    
-                    this.updateStatus("IA carregada", 'success');
-                } catch (error) {
-                    console.error("Erro ao carregar modelo:", error);
-                    this.updateStatus("IA não carregada - usando básico", 'warning');
-                }
-            }
-
-            modelLoadProgress(progress) {
-                const percent = Math.round(progress * 100);
-                this.updateStatus(`Carregando IA... ${percent}%`, 'loading');
             }
 
             async loadFromDatabase() {
@@ -549,17 +514,6 @@
                 });
             }
 
-            async loadEmbeddingsFromDB() {
-                return new Promise((resolve, reject) => {
-                    const transaction = db.transaction(CONFIG.STORE_NAME, 'readonly');
-                    const store = transaction.objectStore(CONFIG.STORE_NAME);
-                    const request = store.get(CONFIG.EMBEDDINGS_KEY);
-                    
-                    request.onsuccess = () => resolve(request.result);
-                    request.onerror = () => reject(request.error);
-                });
-            }
-
             async saveToDatabase(data, hash) {
                 return new Promise((resolve, reject) => {
                     const transaction = db.transaction(CONFIG.STORE_NAME, 'readwrite');
@@ -567,18 +521,6 @@
                     
                     store.put(data, CONFIG.DATA_KEY);
                     store.put(hash, CONFIG.LAST_UPDATE_KEY);
-                    
-                    transaction.oncomplete = () => resolve();
-                    transaction.onerror = () => reject(transaction.error);
-                });
-            }
-
-            async saveEmbeddingsToDB(embeddings) {
-                return new Promise((resolve, reject) => {
-                    const transaction = db.transaction(CONFIG.STORE_NAME, 'readwrite');
-                    const store = transaction.objectStore(CONFIG.STORE_NAME);
-                    
-                    store.put(embeddings, CONFIG.EMBEDDINGS_KEY);
                     
                     transaction.oncomplete = () => resolve();
                     transaction.onerror = () => reject(transaction.error);
@@ -683,64 +625,10 @@
                 fuse = new Fuse(qaData, {
                     keys: ['question'],
                     includeScore: true,
-                    threshold: CONFIG.TEXT_SEARCH_THRESHOLD,
+                    threshold: 0.4,
                     ignoreLocation: true,
                     minMatchCharLength: 3
                 });
-            }
-
-            async generateEmbedding(text) {
-                if (!pipeline) return null;
-                try {
-                    const output = await pipeline(text, {
-                        pooling: 'mean',
-                        normalize: true
-                    });
-                    return Array.from(output.data);
-                } catch (error) {
-                    console.error("Erro ao gerar embedding:", error);
-                    return null;
-                }
-            }
-
-            async buildVectorDB() {
-                if (!pipeline) return;
-                
-                this.updateStatus("Processando conhecimento...", 'loading');
-                vectorDB = new VectorDB();
-                
-                // Verifica se já temos embeddings armazenados
-                const storedEmbeddings = await this.loadEmbeddingsFromDB();
-                if (storedEmbeddings && storedEmbeddings.length === qaData.length) {
-                    vectorDB.load(storedEmbeddings);
-                    this.updateStatus(`Pronto com ${qaData.length} respostas`, 'success');
-                    return;
-                }
-                
-                // Gera embeddings para todas as perguntas
-                const embeddings = [];
-                for (let i = 0; i < qaData.length; i++) {
-                    const item = qaData[i];
-                    const embedding = await this.generateEmbedding(item.question);
-                    if (embedding) {
-                        embeddings.push({
-                            id: i.toString(),
-                            vector: embedding,
-                            metadata: item
-                        });
-                    }
-                    
-                    // Atualiza status periodicamente
-                    if (i % 5 === 0) {
-                        const percent = Math.round((i / qaData.length) * 100);
-                        this.updateStatus(`Processando... ${percent}%`, 'loading');
-                    }
-                }
-                
-                // Armazena no VectorDB e no IndexedDB
-                vectorDB.add(embeddings);
-                await this.saveEmbeddingsToDB(embeddings);
-                this.updateStatus(`Pronto com ${qaData.length} respostas`, 'success');
             }
 
             async fetchAndUpdateData() {
@@ -752,10 +640,6 @@
                         lastUpdateHash = hash;
                         await this.saveToDatabase(data, hash);
                         this.initSearchEngine();
-                        
-                        if (pipeline) {
-                            await this.buildVectorDB();
-                        }
                         
                         this.updateStatus(`Atualizado com ${data.length} respostas`, 'success');
                         autoUpdateStatus.textContent = `Atualizado em ${new Date().toLocaleTimeString()}`;
@@ -794,7 +678,7 @@
                     }
                 }, CONFIG.AUTO_UPDATE_INTERVAL);
                 
-                autoUpdateStatus.textContent = `Próxima verificação em ${new Date(new Date().getTime() + CONFIG.AUTO_UPDATE_INTERVAL).toLocaleTimeString()}`;
+                autoUpdateStatus.textContent = `Próxima verificação em ${CONFIG.AUTO_UPDATE_INTERVAL / 60000} minutos`;
             }
 
             showUpdateBanner() {
@@ -821,20 +705,13 @@
                 }
             }
 
-            addMessage(text, sender, confidence) {
+            addMessage(text, sender) {
                 const messageDiv = document.createElement('div');
                 messageDiv.className = `message ${sender}-message`;
                 
                 const contentDiv = document.createElement('div');
                 contentDiv.textContent = text;
                 messageDiv.appendChild(contentDiv);
-                
-                if (confidence) {
-                    const confidenceDiv = document.createElement('span');
-                    confidenceDiv.className = `confidence-badge confidence-${this.getConfidenceLevel(confidence)}`;
-                    confidenceDiv.textContent = `${Math.round(confidence * 100)}%`;
-                    contentDiv.appendChild(confidenceDiv);
-                }
                 
                 const timeDiv = document.createElement('div');
                 timeDiv.className = 'message-time';
@@ -845,17 +722,17 @@
                 chatArea.scrollTop = chatArea.scrollHeight;
             }
 
-            getConfidenceLevel(score) {
-                if (score >= 0.8) return 'high';
-                if (score >= 0.6) return 'medium';
-                return 'low';
-            }
-
             addUserMessage(text) {
                 this.addMessage(text, 'user');
+                conversationHistory.push({ role: 'user', content: text });
+                
+                // Mantém apenas os últimos 5 itens do histórico
+                if (conversationHistory.length > 5) {
+                    conversationHistory = conversationHistory.slice(-5);
+                }
             }
 
-            addBotMessage(text, confidence) {
+            addBotMessage(text) {
                 // Remove o indicador de digitação se existir
                 const typingIndicator = document.getElementById('typingIndicator');
                 if (typingIndicator) {
@@ -868,10 +745,12 @@
                     
                     setTimeout(() => {
                         chatArea.removeChild(typingDiv);
-                        this.addMessage(text, 'bot', confidence);
+                        this.addMessage(text, 'bot');
+                        conversationHistory.push({ role: 'assistant', content: text });
                     }, Math.min(text.length * 30, 2000));
                 } else {
-                    this.addMessage(text, 'bot', confidence);
+                    this.addMessage(text, 'bot');
+                    conversationHistory.push({ role: 'assistant', content: text });
                 }
             }
 
@@ -902,35 +781,174 @@
                     statusDot.classList.add('loading');
                 } else if (status === 'error') {
                     statusDot.style.backgroundColor = 'var(--error)';
-                } else if (status === 'warning') {
-                    statusDot.style.backgroundColor = 'var(--warning)';
                 }
             }
 
-            async findBestAnswer(question) {
-                // Tenta primeiro com busca semântica se o modelo estiver carregado
-                if (pipeline && vectorDB) {
-                    const embedding = await this.generateEmbedding(question);
-                    if (embedding) {
-                        const results = vectorDB.search(embedding, { k: CONFIG.MAX_RESULTS });
-                        
-                        // Retorna se tivermos uma boa correspondência
-                        if (results.length > 0 && results[0].score >= CONFIG.SIMILARITY_THRESHOLD) {
-                            return {
-                                type: 'semantic',
-                                results: results,
-                                bestMatch: results[0]
-                            };
-                        }
-                    }
+            async startModelLoading() {
+                if (modelLoading || modelLoaded) return;
+                
+                modelLoading = true;
+                modelLoadingProgress.style.display = 'flex';
+                modelStatusText.textContent = "Carregando modelo avançado...";
+                
+                try {
+                    // Configura o progresso do download
+                    const callback = (progress) => {
+                        const percent = Math.round(progress * 100);
+                        modelProgressText.textContent = `${percent}%`;
+                        modelProgressBar.style.width = `${percent}%`;
+                    };
+                    
+                    // Carrega o modelo MiniLM v6
+                    const { pipeline: loadedPipeline } = await this.loadModelWithProgress(
+                        'feature-extraction', 
+                        CONFIG.MODEL_NAME, 
+                        { revision: CONFIG.MODEL_REVISION, progress_callback: callback }
+                    );
+                    
+                    pipeline = loadedPipeline;
+                    modelLoaded = true;
+                    
+                    // Atualiza a interface
+                    modelStatusText.textContent = "Modelo avançado carregado!";
+                    modelProgressText.textContent = "100%";
+                    modelProgressBar.style.width = "100%";
+                    
+                    // Esconde a barra de progresso após um tempo
+                    setTimeout(() => {
+                        modelLoadingProgress.style.display = 'none';
+                        this.addBotMessage("✅ Modelo avançado carregado! Agora posso entender melhor o contexto das perguntas.");
+                    }, 2000);
+                    
+                    // Salva no IndexedDB que o modelo está carregado
+                    await this.saveModelStatus(true);
+                    
+                } catch (error) {
+                    console.error("Erro ao carregar o modelo:", error);
+                    modelStatusText.textContent = "Erro ao carregar modelo";
+                    modelProgressText.textContent = "Erro";
+                    modelProgressBar.style.backgroundColor = "var(--error)";
+                    
+                    // Tenta novamente após 1 minuto
+                    setTimeout(() => this.startModelLoading(), 60000);
+                } finally {
+                    modelLoading = false;
+                }
+            }
+
+            async loadModelWithProgress(task, model, options) {
+                return new Promise((resolve, reject) => {
+                    // Configura o callback de progresso
+                    const progressCallback = options.progress_callback;
+                    let lastProgress = 0;
+                    
+                    // Substitui o callback de progresso para atualizar a UI
+                    options.progress_callback = (progress) => {
+                        if (progressCallback) progressCallback(progress);
+                        lastProgress = progress;
+                    };
+                    
+                    // Carrega o pipeline
+                    transformers.pipeline(task, model, options)
+                        .then(pipeline => {
+                            // Garante que a barra de progresso chegue a 100%
+                            if (lastProgress < 1) {
+                                const interval = setInterval(() => {
+                                    lastProgress = Math.min(lastProgress + 0.05, 1);
+                                    progressCallback(lastProgress);
+                                    
+                                    if (lastProgress >= 1) {
+                                        clearInterval(interval);
+                                        resolve({ pipeline });
+                                    }
+                                }, 100);
+                            } else {
+                                resolve({ pipeline });
+                            }
+                        })
+                        .catch(reject);
+                });
+            }
+
+            async saveModelStatus(loaded) {
+                return new Promise((resolve, reject) => {
+                    const transaction = db.transaction(CONFIG.STORE_NAME, 'readwrite');
+                    const store = transaction.objectStore(CONFIG.STORE_NAME);
+                    
+                    store.put(loaded, CONFIG.MODEL_KEY);
+                    
+                    transaction.oncomplete = () => resolve();
+                    transaction.onerror = () => reject(transaction.error);
+                });
+            }
+
+            async checkModelStatus() {
+                return new Promise((resolve, reject) => {
+                    const transaction = db.transaction(CONFIG.STORE_NAME, 'readonly');
+                    const store = transaction.objectStore(CONFIG.STORE_NAME);
+                    
+                    const request = store.get(CONFIG.MODEL_KEY);
+                    
+                    request.onsuccess = () => resolve(request.result === true);
+                    request.onerror = () => reject(request.error);
+                });
+            }
+
+            async getEmbedding(text) {
+                if (!pipeline) {
+                    throw new Error("Modelo não carregado");
                 }
                 
-                // Fallback para busca textual
-                const fuseResults = fuse.search(question, { limit: CONFIG.MAX_RESULTS });
-                return {
-                    type: 'text',
-                    results: fuseResults
-                };
+                const result = await pipeline(text, { pooling: 'mean', normalize: true });
+                return Array.from(result.data);
+            }
+
+            async findBestMatchWithEmbedding(question) {
+                if (!modelLoaded || !pipeline) {
+                    return null; // Retorna null se o modelo não estiver pronto
+                }
+                
+                try {
+                    // Obtém o embedding da pergunta
+                    const questionEmbedding = await this.getEmbedding(question);
+                    
+                    // Calcula similaridade com todas as perguntas na base
+                    let bestMatch = null;
+                    let bestScore = -1;
+                    
+                    for (const item of qaData) {
+                        const itemEmbedding = await this.getEmbedding(item.question);
+                        const score = this.cosineSimilarity(questionEmbedding, itemEmbedding);
+                        
+                        if (score > bestScore) {
+                            bestScore = score;
+                            bestMatch = item;
+                        }
+                    }
+                    
+                    // Retorna apenas se a similaridade for acima de um limiar
+                    return bestScore > 0.7 ? { item: bestMatch, score: 1 - bestScore } : null;
+                    
+                } catch (error) {
+                    console.error("Erro ao usar embeddings:", error);
+                    return null;
+                }
+            }
+
+            cosineSimilarity(vecA, vecB) {
+                if (vecA.length !== vecB.length) return 0;
+                
+                let dotProduct = 0;
+                let normA = 0;
+                let normB = 0;
+                
+                for (let i = 0; i < vecA.length; i++) {
+                    dotProduct += vecA[i] * vecB[i];
+                    normA += vecA[i] * vecA[i];
+                    normB += vecB[i] * vecB[i];
+                }
+                
+                return dotProduct / (Math.sqrt(normA) * Math.sqrt(normB));
             }
 
             async handleQuestion() {
@@ -942,41 +960,39 @@
                 
                 this.showTypingIndicator();
                 
-                setTimeout(async () => {
+                // Primeiro tenta com o modelo avançado se estiver carregado
+                if (modelLoaded) {
+                    try {
+                        const embeddingMatch = await this.findBestMatchWithEmbedding(question);
+                        
+                        if (embeddingMatch) {
+                            this.addBotMessage(embeddingMatch.item.answer);
+                            return;
+                        }
+                    } catch (error) {
+                        console.error("Erro no modelo avançado, usando fallback:", error);
+                    }
+                }
+                
+                // Fallback para Fuse.js se o modelo não estiver pronto ou não encontrar resposta
+                setTimeout(() => {
                     if (!fuse || qaData.length === 0) {
                         this.addBotMessage("Minha base de conhecimento não está carregada. Por favor, atualize os dados.");
                         return;
                     }
                     
-                    try {
-                        const { type, results, bestMatch } = await this.findBestAnswer(question);
-                        
-                        if (type === 'semantic' && bestMatch) {
-                            // Resposta direta da melhor correspondência semântica
-                            this.addBotMessage(
-                                bestMatch.metadata.answer,
-                                bestMatch.score
-                            );
-                        } else if (results.length > 0) {
-                            // Mostra opções para o usuário escolher
-                            const options = results
-                                .map((r, i) => {
-                                    const score = type === 'semantic' 
-                                        ? `${Math.round(r.score * 100)}%` 
-                                        : `${Math.round((1 - r.score) * 100)}%`;
-                                    return `${i+1}. ${r.metadata?.question || r.item.question} (${score})`;
-                                })
-                                .join('\n');
-                                
-                            this.addBotMessage(
-                                `Encontrei estas opções:\n\n${options}\n\nResponda com o número correspondente.`
-                            );
-                        } else {
-                            this.addBotMessage("Não encontrei uma resposta para essa pergunta. Tente reformular ou perguntar de outra forma.");
-                        }
-                    } catch (error) {
-                        console.error("Erro ao processar pergunta:", error);
-                        this.addBotMessage("Ocorreu um erro ao processar sua pergunta. Por favor, tente novamente.");
+                    const results = fuse.search(question, { limit: 3 });
+                    
+                    if (results.length > 0 && results[0].score < 0.4) {
+                        this.addBotMessage(results[0].item.answer);
+                    } else if (results.length > 0) {
+                        const possibleAnswers = results.slice(0, 3)
+                            .map((r, i) => `${i+1}. ${r.item.question}`)
+                            .join('\n');
+                            
+                        this.addBotMessage(`Você quis dizer uma dessas opções?\n\n${possibleAnswers}\n\nResponda com o número correspondente.`);
+                    } else {
+                        this.addBotMessage("Não encontrei uma resposta para essa pergunta. Tente reformular ou perguntar de outra forma.");
                     }
                 }, 1000);
             }
@@ -1002,6 +1018,17 @@
 
         // Inicializa o chatbot quando o DOM estiver pronto
         document.addEventListener('DOMContentLoaded', () => {
+            // Configura o transformers.js para usar cache
+            if (!window.transformers) {
+                window.transformers = {
+                    env: {
+                        remoteHost: 'https://cdn.jsdelivr.net/npm/@xenova/transformers@2.6.0/dist/',
+                        allowLocalModels: false,
+                        useFS: false
+                    }
+                };
+            }
+            
             window.chatBot = new ChatBot();
             questionInput.focus();
         });
