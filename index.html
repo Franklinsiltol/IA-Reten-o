@@ -231,22 +231,29 @@
                     }
                 }
                 
-                // Se não há cache válido, carrega da planilha
-                const url = `https://docs.google.com/spreadsheets/d/${CONFIG.SHEET_ID}/gviz/tq?tqx=out:csv&sheet=${CONFIG.SHEET_NAME}`;
-                const response = await fetch(url);
+                // Se não há cache válido, carrega da planilha usando um proxy CORS
+                const proxyUrl = 'https://api.allorigins.win/raw?url=';
+                const sheetUrl = encodeURIComponent(`https://docs.google.com/spreadsheets/d/${CONFIG.SHEET_ID}/gviz/tq?tqx=out:csv&sheet=${CONFIG.SHEET_NAME}`);
+                const response = await fetch(proxyUrl + sheetUrl);
+                
+                if (!response.ok) {
+                    throw new Error('Erro ao carregar a planilha');
+                }
+                
                 let csvData = await response.text();
                 
                 // Processa o CSV - tratamento especial para seu formato
-                csvData = csvData.replace(/""/g, '"'); // Remove aspas duplas
                 const rows = csvData.split('\n').slice(1); // Ignora o cabeçalho
                 
                 knowledgeBase = rows.map(row => {
-                    // Tratamento especial para quebras de linha e tabulação
-                    const parts = row.split('\t');
+                    // Remove aspas extras e divide por tabulação
+                    const cleanedRow = row.replace(/^"|"$/g, '').replace(/""/g, '"');
+                    const parts = cleanedRow.split('\t');
+                    
                     if (parts.length >= 2) {
                         return {
-                            question: parts[0].replace(/^"|"$/g, '').trim(),
-                            answer: parts[1].replace(/^"|"$/g, '').trim()
+                            question: parts[0].trim(),
+                            answer: parts[1].trim()
                         };
                     }
                     return null;
@@ -259,6 +266,13 @@
             } catch (error) {
                 console.error('Erro ao carregar a base de conhecimento:', error);
                 addBotMessage("Estou atualizando meu conhecimento. Por favor, tente novamente em alguns instantes.");
+                
+                // Tenta usar dados do cache mesmo se expirados
+                const cachedData = localStorage.getItem('knowledgeBase');
+                if (cachedData) {
+                    knowledgeBase = JSON.parse(cachedData);
+                    addBotMessage("Estou usando informações armazenadas temporariamente.");
+                }
             }
         }
 
