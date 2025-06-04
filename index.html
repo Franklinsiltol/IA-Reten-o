@@ -3,272 +3,500 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Assistente Local com Google Sheets</title>
+    <title>NeuroAssist - Assistente de IA</title>
     <script src="https://cdn.jsdelivr.net/npm/fuse.js/dist/fuse.min.js"></script>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
     <style>
-        body {
-            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+        :root {
+            --black: #121212;
+            --dark-gray: #1E1E1E;
+            --medium-gray: #2D2D2D;
+            --light-gray: #3A3A3A;
+            --white: #F5F5F5;
+            --accent: #FFFFFF;
+            --success: #4CAF50;
+            --warning: #FF9800;
+            --error: #F44336;
+        }
+
+        * {
+            box-sizing: border-box;
             margin: 0;
-            padding: 20px;
-            background-color: #f4f4f9;
-            color: #333;
+            padding: 0;
+        }
+
+        body {
+            font-family: 'Inter', sans-serif;
+            background-color: var(--black);
+            color: var(--white);
+            line-height: 1.6;
             display: flex;
             flex-direction: column;
-            align-items: center;
             min-height: 100vh;
+            padding: 0;
         }
 
-        .container {
-            background-color: #fff;
-            padding: 30px;
-            border-radius: 10px;
-            box-shadow: 0 5px 15px rgba(0, 0, 0, 0.1);
-            width: 100%;
-            max-width: 700px;
-            box-sizing: border-box;
-        }
-
-        h1 {
-            color: #007bff;
-            text-align: center;
-            margin-bottom: 20px;
-        }
-
-        .input-area {
+        .app-container {
             display: flex;
-            margin-bottom: 20px;
-            gap: 10px;
+            flex-direction: column;
+            max-width: 1000px;
+            width: 100%;
+            margin: 0 auto;
+            height: 100vh;
+            overflow: hidden;
         }
 
-        #questionInput {
-            flex-grow: 1;
-            padding: 12px 15px;
-            border: 1px solid #ddd;
-            border-radius: 5px;
-            font-size: 16px;
-            outline: none;
+        header {
+            background-color: var(--dark-gray);
+            padding: 1rem;
+            border-bottom: 1px solid var(--medium-gray);
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
         }
 
-        #questionInput:focus {
-            border-color: #007bff;
-            box-shadow: 0 0 0 0.2rem rgba(0, 123, 255, 0.25);
+        .logo {
+            display: flex;
+            align-items: center;
+            gap: 0.75rem;
         }
 
-        #askButton, #updateButton {
-            padding: 12px 20px;
-            background-color: #007bff;
-            color: white;
-            border: none;
-            border-radius: 5px;
-            cursor: pointer;
-            font-size: 16px;
-            transition: background-color 0.3s ease;
+        .logo-icon {
+            width: 32px;
+            height: 32px;
+            background-color: var(--accent);
+            border-radius: 50%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            color: var(--black);
+            font-weight: bold;
         }
 
-        #askButton:hover, #updateButton:hover {
-            background-color: #0056b3;
+        .logo-text {
+            font-weight: 600;
+            font-size: 1.25rem;
         }
-        
-        #updateButton {
-            background-color: #28a745;
-            margin-bottom: 20px;
-            align-self: flex-start; /* Alinha o botão à esquerda */
+
+        .status-indicator {
+            display: flex;
+            align-items: center;
+            gap: 0.5rem;
+            font-size: 0.85rem;
+            color: var(--white);
         }
-        #updateButton:hover {
-            background-color: #1e7e34;
+
+        .status-dot {
+            width: 10px;
+            height: 10px;
+            border-radius: 50%;
+            background-color: var(--success);
+        }
+
+        .status-dot.loading {
+            background-color: var(--warning);
+            animation: pulse 1.5s infinite;
+        }
+
+        .status-dot.error {
+            background-color: var(--error);
+        }
+
+        @keyframes pulse {
+            0% { opacity: 0.5; }
+            50% { opacity: 1; }
+            100% { opacity: 0.5; }
+        }
+
+        .chat-container {
+            flex: 1;
+            display: flex;
+            flex-direction: column;
+            overflow: hidden;
+            background-color: var(--dark-gray);
         }
 
         .chat-area {
-            border: 1px solid #eee;
-            border-radius: 5px;
-            padding: 15px;
-            height: 300px;
+            flex: 1;
             overflow-y: auto;
-            background-color: #f9f9f9;
-            margin-bottom: 10px;
+            padding: 1.5rem;
+            display: flex;
+            flex-direction: column;
+            gap: 1.25rem;
+            scrollbar-width: thin;
+            scrollbar-color: var(--light-gray) var(--dark-gray);
+        }
+
+        .chat-area::-webkit-scrollbar {
+            width: 6px;
+        }
+
+        .chat-area::-webkit-scrollbar-track {
+            background: var(--dark-gray);
+        }
+
+        .chat-area::-webkit-scrollbar-thumb {
+            background-color: var(--light-gray);
+            border-radius: 3px;
         }
 
         .message {
-            padding: 10px;
-            margin-bottom: 10px;
-            border-radius: 8px;
-            max-width: 80%;
-            word-wrap: break-word;
+            max-width: 85%;
+            padding: 0.75rem 1rem;
+            border-radius: 12px;
+            line-height: 1.5;
+            position: relative;
+            animation: fadeIn 0.3s ease-out;
+            box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+        }
+
+        @keyframes fadeIn {
+            from { opacity: 0; transform: translateY(10px); }
+            to { opacity: 1; transform: translateY(0); }
         }
 
         .user-message {
-            background-color: #007bff;
-            color: white;
+            background-color: var(--medium-gray);
+            color: var(--white);
             margin-left: auto;
-            text-align: right;
+            border-bottom-right-radius: 4px;
+            border: 1px solid var(--light-gray);
         }
 
         .bot-message {
-            background-color: #e9ecef;
-            color: #333;
+            background-color: var(--black);
+            color: var(--white);
             margin-right: auto;
-        }
-        
-        .status-message {
-            font-style: italic;
-            color: #6c757d;
-            text-align: center;
-            font-size: 0.9em;
-            margin-top: 10px;
+            border-bottom-left-radius: 4px;
+            border: 1px solid var(--medium-gray);
         }
 
-        @media (max-width: 600px) {
+        .message-time {
+            font-size: 0.7rem;
+            opacity: 0.7;
+            margin-top: 0.25rem;
+            text-align: right;
+        }
+
+        .input-area {
+            padding: 1rem;
+            background-color: var(--dark-gray);
+            border-top: 1px solid var(--medium-gray);
+            display: flex;
+            gap: 0.75rem;
+        }
+
+        #questionInput {
+            flex: 1;
+            padding: 0.75rem 1rem;
+            border-radius: 8px;
+            border: 1px solid var(--medium-gray);
+            background-color: var(--black);
+            color: var(--white);
+            font-family: 'Inter', sans-serif;
+            font-size: 1rem;
+            outline: none;
+            transition: border-color 0.2s;
+        }
+
+        #questionInput:focus {
+            border-color: var(--accent);
+        }
+
+        #questionInput::placeholder {
+            color: var(--light-gray);
+        }
+
+        .button {
+            padding: 0.75rem 1.25rem;
+            border-radius: 8px;
+            border: none;
+            font-family: 'Inter', sans-serif;
+            font-weight: 500;
+            font-size: 1rem;
+            cursor: pointer;
+            transition: all 0.2s;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 0.5rem;
+        }
+
+        #askButton {
+            background-color: var(--accent);
+            color: var(--black);
+        }
+
+        #askButton:hover {
+            background-color: #e0e0e0;
+            transform: translateY(-1px);
+        }
+
+        #askButton:active {
+            transform: translateY(0);
+        }
+
+        #updateButton {
+            background-color: transparent;
+            color: var(--accent);
+            border: 1px solid var(--medium-gray);
+        }
+
+        #updateButton:hover {
+            background-color: var(--medium-gray);
+        }
+
+        .typing-indicator {
+            display: flex;
+            gap: 0.25rem;
+            padding: 0.75rem 1rem;
+            background-color: var(--black);
+            border-radius: 12px;
+            margin-right: auto;
+            border-bottom-left-radius: 4px;
+            border: 1px solid var(--medium-gray);
+            width: fit-content;
+        }
+
+        .typing-dot {
+            width: 8px;
+            height: 8px;
+            background-color: var(--white);
+            border-radius: 50%;
+            opacity: 0.4;
+            animation: typingAnimation 1.4s infinite ease-in-out;
+        }
+
+        .typing-dot:nth-child(1) {
+            animation-delay: 0s;
+        }
+
+        .typing-dot:nth-child(2) {
+            animation-delay: 0.2s;
+        }
+
+        .typing-dot:nth-child(3) {
+            animation-delay: 0.4s;
+        }
+
+        @keyframes typingAnimation {
+            0%, 60%, 100% { transform: translateY(0); opacity: 0.4; }
+            30% { transform: translateY(-5px); opacity: 1; }
+        }
+
+        .suggestions {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 0.5rem;
+            padding: 0 1.5rem 1rem;
+            background-color: var(--dark-gray);
+        }
+
+        .suggestion-chip {
+            padding: 0.5rem 0.75rem;
+            background-color: var(--medium-gray);
+            border-radius: 20px;
+            font-size: 0.85rem;
+            cursor: pointer;
+            transition: background-color 0.2s;
+        }
+
+        .suggestion-chip:hover {
+            background-color: var(--light-gray);
+        }
+
+        .context-menu {
+            position: absolute;
+            background-color: var(--dark-gray);
+            border: 1px solid var(--medium-gray);
+            border-radius: 8px;
+            padding: 0.5rem 0;
+            z-index: 100;
+            box-shadow: 0 4px 12px rgba(0, 0, 0, 0.3);
+            display: none;
+        }
+
+        .context-menu-item {
+            padding: 0.5rem 1rem;
+            cursor: pointer;
+            font-size: 0.9rem;
+        }
+
+        .context-menu-item:hover {
+            background-color: var(--medium-gray);
+        }
+
+        @media (max-width: 768px) {
+            .app-container {
+                height: 100vh;
+                max-width: 100%;
+            }
+            
+            .message {
+                max-width: 90%;
+            }
+            
             .input-area {
-                flex-direction: column;
+                padding: 0.75rem;
             }
-            #questionInput {
-                margin-bottom: 10px;
+            
+            .button {
+                padding: 0.75rem;
             }
+        }
+
+        /* Animação de entrada do chat */
+        @keyframes slideIn {
+            from { transform: translateY(20px); opacity: 0; }
+            to { transform: translateY(0); opacity: 1; }
+        }
+
+        .app-container {
+            animation: slideIn 0.4s ease-out;
         }
     </style>
 </head>
 <body>
-    <div class="container">
-        <h1>Assistente Inteligente</h1>
-        <button id="updateButton">Atualizar Base de Conhecimento</button>
-        <div class="input-area">
-            <input type="text" id="questionInput" placeholder="Faça sua pergunta aqui...">
-            <button id="askButton">Perguntar</button>
+    <div class="app-container">
+        <header>
+            <div class="logo">
+                <div class="logo-icon">N</div>
+                <div class="logo-text">NeuroAssist</div>
+            </div>
+            <div class="status-indicator">
+                <div class="status-dot loading"></div>
+                <span id="statusText">Conectando...</span>
+            </div>
+        </header>
+
+        <div class="chat-container">
+            <div class="chat-area" id="chatArea">
+                <!-- Mensagens aparecerão aqui -->
+            </div>
+
+            <div class="suggestions" id="suggestions">
+                <!-- Sugestões de perguntas -->
+            </div>
+
+            <div class="input-area">
+                <input type="text" id="questionInput" placeholder="Digite sua mensagem..." autocomplete="off">
+                <button id="askButton" class="button">
+                    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+                        <path d="M22 2L11 13" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+                        <path d="M22 2L15 22L11 13L2 9L22 2Z" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+                    </svg>
+                </button>
+            </div>
         </div>
-        <div class="chat-area" id="chatArea">
-            <!-- Messages will appear here -->
-        </div>
-        <div id="status" class="status-message">Carregando dados...</div>
+    </div>
+
+    <div class="context-menu" id="contextMenu">
+        <div class="context-menu-item" id="copyMenuItem">Copiar</div>
+        <div class="context-menu-item" id="deleteMenuItem">Excluir</div>
     </div>
 
     <script>
-        // ####################################################################################
-        // ##                                                                                ##
-        // ##  INSTRUÇÕES IMPORTANTES:                                                       ##
-        // ##  1. Encontre o ID da sua planilha do Google Sheets.                             ##
-        // ##     Abra sua planilha no Google Sheets. A URL no navegador será algo como:     ##
-        // ##     https://docs.google.com/spreadsheets/d/SEU_SHEET_ID_ESTA_AQUI/edit...    ##
-        // ##     Copie a parte que é o SEU_SHEET_ID_ESTA_AQUI.                              ##
-        // ##  2. Cole esse ID na linha abaixo, substituindo "COLOQUE_O_ID_DA_SUA_PLANILHA_AQUI".##
-        // ##                                                                                ##
-        // ####################################################################################
+        // Configurações
         const SHEET_ID = "1pgoYg76gutqLnOlsk3mN40HfzN9n-x_6oJQcfkZEBzY";
-
-        // ####################################################################################
-        // ##                                                                                ##
-        // ##  INSTRUÇÕES IMPORTANTES:                                                       ##
-        // ##  1. Verifique o nome EXATO da aba (planilha individual) que você publicou.      ##
-        // ##     O link de publicação que você forneceu (...gid=0...) geralmente se refere  ##
-        // ##     à primeira aba. Veja qual é o nome dela no Google Sheets.                  ##
-        // ##  2. Substitua "BaseRespostas" abaixo pelo nome EXATO da sua aba, se for        ##
-        // ##     diferente. Se sua aba se chama "Página1", coloque "Página1".                ##
-        // ##     Lembre-se que é sensível a maiúsculas/minúsculas.                          ##
-        // ##                                                                                ##
-        // ####################################################################################
-        const SHEET_NAME = "BaseRespostas"; // <--- VERIFIQUE E ALTERE SE NECESSÁRIO
-
-        // Constantes do banco de dados local e Fuse.js (não precisa alterar)
-        const DB_NAME = "ChatBotDB";
-        const STORE_NAME = "QAPairs";
+        const SHEET_NAME = "BaseRespostas";
+        const DB_NAME = "NeuroAssistDB";
+        const STORE_NAME = "KnowledgeBase";
         const DATA_KEY = "qaData";
+        const SUGGESTION_COUNT = 4;
 
-        // Elementos da página (não precisa alterar)
+        // Elementos da interface
         const questionInput = document.getElementById('questionInput');
         const askButton = document.getElementById('askButton');
-        const updateButton = document.getElementById('updateButton');
         const chatArea = document.getElementById('chatArea');
-        const statusDiv = document.getElementById('status');
+        const statusText = document.getElementById('statusText');
+        const statusDot = document.querySelector('.status-dot');
+        const suggestionsContainer = document.getElementById('suggestions');
+        const contextMenu = document.getElementById('contextMenu');
+        const copyMenuItem = document.getElementById('copyMenuItem');
+        const deleteMenuItem = document.getElementById('deleteMenuItem');
 
+        // Variáveis globais
         let db;
         let fuse;
         let qaData = [];
+        let typingTimeout;
+        let selectedMessage = null;
 
-        // 1. IndexedDB Setup
-        function openDB() {
+        // 1. Configuração do IndexedDB
+        async function openDB() {
             return new Promise((resolve, reject) => {
                 const request = indexedDB.open(DB_NAME, 1);
+                
                 request.onupgradeneeded = event => {
                     const dbInstance = event.target.result;
                     if (!dbInstance.objectStoreNames.contains(STORE_NAME)) {
                         dbInstance.createObjectStore(STORE_NAME);
                     }
                 };
+                
                 request.onsuccess = event => {
                     db = event.target.result;
                     resolve(db);
                 };
+                
                 request.onerror = event => {
-                    console.error("Erro ao abrir IndexedDB:", event.target.errorCode);
-                    reject(event.target.errorCode);
+                    console.error("Erro ao abrir IndexedDB:", event.target.error);
+                    updateStatus("Erro no banco de dados", "error");
+                    reject(event.target.error);
                 };
             });
         }
 
-        function saveDataToDB(data) {
+        async function saveDataToDB(data) {
             return new Promise((resolve, reject) => {
-                if (!db) {
-                    reject("DB não está aberta");
-                    return;
-                }
                 const transaction = db.transaction(STORE_NAME, 'readwrite');
                 const store = transaction.objectStore(STORE_NAME);
                 const request = store.put(data, DATA_KEY);
+                
                 request.onsuccess = () => resolve();
                 request.onerror = event => {
-                    console.error("Erro ao salvar dados no DB:", event.target.errorCode);
-                    reject(event.target.errorCode);
+                    console.error("Erro ao salvar dados:", event.target.error);
+                    reject(event.target.error);
                 };
             });
         }
 
-        function loadDataFromDB() {
+        async function loadDataFromDB() {
             return new Promise((resolve, reject) => {
-                if (!db) {
-                    reject("DB não está aberta");
-                    return;
-                }
                 const transaction = db.transaction(STORE_NAME, 'readonly');
                 const store = transaction.objectStore(STORE_NAME);
                 const request = store.get(DATA_KEY);
-                request.onsuccess = event => {
-                    resolve(event.target.result || []);
-                };
+                
+                request.onsuccess = event => resolve(event.target.result || []);
                 request.onerror = event => {
-                    console.error("Erro ao carregar dados do DB:", event.target.errorCode);
-                    reject(event.target.errorCode);
-                };
-            });
-        }
-        
-        function clearDB() {
-             return new Promise((resolve, reject) => {
-                if (!db) {
-                    reject("DB não está aberta");
-                    return;
-                }
-                const transaction = db.transaction(STORE_NAME, 'readwrite');
-                const store = transaction.objectStore(STORE_NAME);
-                const request = store.clear();
-                request.onsuccess = () => {
-                    console.log("IndexedDB limpo com sucesso.");
-                    resolve();
-                };
-                request.onerror = event => {
-                    console.error("Erro ao limpar IndexedDB:", event.target.errorCode);
-                    reject(event.target.errorCode);
+                    console.error("Erro ao carregar dados:", event.target.error);
+                    reject(event.target.error);
                 };
             });
         }
 
-        // 2. Fetch data from Google Sheets
+        async function clearDB() {
+            return new Promise((resolve, reject) => {
+                const transaction = db.transaction(STORE_NAME, 'readwrite');
+                const store = transaction.objectStore(STORE_NAME);
+                const request = store.clear();
+                
+                request.onsuccess = () => resolve();
+                request.onerror = event => {
+                    console.error("Erro ao limpar banco de dados:", event.target.error);
+                    reject(event.target.error);
+                };
+            });
+        }
+
+        // 2. Busca de dados do Google Sheets
         async function fetchSheetData() {
-            statusDiv.textContent = "Buscando dados da planilha...";
+            updateStatus("Atualizando base de conhecimento...", "loading");
             
-            if (SHEET_ID === "COLOQUE_O_ID_DA_SUA_PLANILHA_AQUI" || !SHEET_ID) {
-                const errorMsg = "ERRO: O ID da Planilha (SHEET_ID) não foi configurado no código. Por favor, edite o arquivo HTML e insira o ID correto.";
-                statusDiv.textContent = errorMsg;
-                addBotMessage(errorMsg);
-                console.error(errorMsg);
+            if (!SHEET_ID || SHEET_ID === "COLOQUE_O_ID_DA_SUA_PLANILHA_AQUI") {
+                const errorMsg = "ERRO: ID da planilha não configurado";
+                updateStatus(errorMsg, "error");
+                addBotMessage("Configuração necessária: Por favor, defina o ID da planilha no código para que eu possa acessar a base de conhecimento.");
                 return [];
             }
 
@@ -277,22 +505,19 @@
             try {
                 const response = await fetch(url);
                 if (!response.ok) {
-                    let errorDetail = `Erro na rede: ${response.status} ${response.statusText}.`;
-                    if (response.status === 400 || response.status === 404) { // Comum para nome de aba errado ou ID inválido
-                        errorDetail += ` Verifique se o SHEET_ID ('${SHEET_ID}') e o SHEET_NAME ('${SHEET_NAME}') estão corretos e se a planilha está publicada na web como CSV.`;
-                    }
-                    throw new Error(errorDetail);
+                    throw new Error(`Erro na rede: ${response.status} ${response.statusText}`);
                 }
+                
                 const csvText = await response.text();
                 
-                if (!csvText || csvText.trim() === "") {
-                    throw new Error("A planilha parece estar vazia ou não foi carregada corretamente. Verifique se ela tem conteúdo e está publicada.");
+                if (!csvText.trim()) {
+                    throw new Error("A planilha está vazia ou não foi carregada corretamente");
                 }
 
                 const parsedData = parseCSV(csvText);
                 
-                if (parsedData.length === 0 || parsedData[0].length < 2) {
-                     throw new Error("Dados da planilha parecem vazios ou mal formatados. Verifique se a primeira linha contém os cabeçalhos 'Pergunta' e 'Resposta' (exatamente assim) e se há dados nas linhas seguintes.");
+                if (parsedData.length < 2 || parsedData[0].length < 2) {
+                    throw new Error("Formato de dados inválido na planilha");
                 }
 
                 const headers = parsedData[0].map(h => h.trim().toLowerCase());
@@ -300,102 +525,185 @@
                 const answerIndex = headers.indexOf("resposta");
 
                 if (questionIndex === -1 || answerIndex === -1) {
-                    const errorMsg = `Erro: Cabeçalhos 'Pergunta' ou 'Resposta' não encontrados na primeira linha da aba '${SHEET_NAME}'. Verifique sua planilha. Os cabeçalhos encontrados foram: [${headers.join(', ')}]`;
-                    console.error(errorMsg);
-                    statusDiv.textContent = errorMsg;
-                    addBotMessage("Desculpe, não consegui carregar os dados. Verifique se os cabeçalhos 'Pergunta' e 'Resposta' estão corretos na sua planilha.");
-                    return [];
+                    throw new Error(`Cabeçalhos 'Pergunta' ou 'Resposta' não encontrados. Encontrados: ${headers.join(', ')}`);
                 }
 
-                const formattedData = parsedData.slice(1).map(row => {
-                    if (row.length > Math.max(questionIndex, answerIndex)) {
-                        const question = row[questionIndex] ? row[questionIndex].trim() : "";
-                        const answer = row[answerIndex] ? row[answerIndex].trim() : "";
-                        if (question && answer) {
-                             return { question, answer };
-                        }
-                    }
-                    return null;
-                }).filter(item => item !== null);
-
+                const formattedData = parsedData.slice(1)
+                    .map(row => {
+                        const question = row[questionIndex]?.trim() || "";
+                        const answer = row[answerIndex]?.trim() || "";
+                        return question && answer ? { question, answer } : null;
+                    })
+                    .filter(Boolean);
 
                 if (formattedData.length === 0) {
-                    statusDiv.textContent = "Nenhum par de pergunta/resposta válido encontrado na planilha. Verifique se há dados abaixo dos cabeçalhos.";
-                    addBotMessage("Não encontrei nenhuma informação útil na base de conhecimento. A planilha pode estar vazia ou os dados não estão no formato esperado.");
+                    updateStatus("Base de conhecimento vazia", "warning");
+                    addBotMessage("Encontrei a planilha, mas não há perguntas e respostas configuradas. Por favor, verifique os dados.");
                 } else {
-                    statusDiv.textContent = `Dados carregados: ${formattedData.length} pares de Pergunta/Resposta.`;
+                    updateStatus(`Base atualizada: ${formattedData.length} itens`, "success");
                 }
+                
                 return formattedData;
 
             } catch (error) {
-                console.error("Erro ao buscar ou processar dados da planilha:", error);
-                statusDiv.textContent = `Erro ao buscar dados: ${error.message}. Verifique o console para mais detalhes.`;
-                addBotMessage(`Desculpe, ocorreu um erro ao tentar carregar os dados: ${error.message}. Tente atualizar ou verifique as configurações.`);
+                console.error("Erro ao buscar dados:", error);
+                updateStatus("Erro ao carregar dados", "error");
+                addBotMessage(`Não consegui acessar a base de conhecimento: ${error.message}. Verifique as configurações e tente novamente.`);
                 return [];
             }
         }
 
         function parseCSV(csvText) {
-            const lines = csvText.split('\n');
-            return lines.map(line => {
-                const columns = [];
-                let currentField = '';
-                let inQuotes = false;
-                for (let i = 0; i < line.length; i++) {
-                    const char = line[i];
-                    if (char === '"') {
-                        if (inQuotes && i + 1 < line.length && line[i+1] === '"') {
-                            currentField += '"';
-                            i++;
-                        } else {
-                            inQuotes = !inQuotes;
-                        }
-                    } else if (char === ',' && !inQuotes) {
-                        columns.push(currentField.trim());
-                        currentField = '';
+            const lines = [];
+            let currentLine = [];
+            let inQuotes = false;
+            let currentField = "";
+
+            for (let i = 0; i < csvText.length; i++) {
+                const char = csvText[i];
+                
+                if (char === '"') {
+                    if (inQuotes && csvText[i + 1] === '"') {
+                        currentField += '"';
+                        i++;
                     } else {
-                        currentField += char;
+                        inQuotes = !inQuotes;
                     }
+                } else if (char === ',' && !inQuotes) {
+                    currentLine.push(currentField.trim());
+                    currentField = "";
+                } else if (char === '\n' && !inQuotes) {
+                    currentLine.push(currentField.trim());
+                    lines.push(currentLine);
+                    currentLine = [];
+                    currentField = "";
+                } else {
+                    currentField += char;
                 }
-                columns.push(currentField.trim());
-                return columns;
-            });
+            }
+
+            // Adiciona a última linha
+            currentLine.push(currentField.trim());
+            lines.push(currentLine);
+            
+            return lines;
         }
 
-        // 3. Fuse.js Setup
+        // 3. Configuração do sistema de busca
         function initializeFuse(data) {
             qaData = data;
+            
             const options = {
                 keys: ['question'],
                 includeScore: true,
-                threshold: 0.4,     
+                threshold: 0.35,
                 ignoreLocation: true,
+                minMatchCharLength: 3,
+                shouldSort: true,
+                includeMatches: true,
+                findAllMatches: true,
                 distance: 100,
+                useExtendedSearch: true,
             };
+            
             fuse = new Fuse(data, options);
-            statusDiv.textContent = qaData.length > 0 ? `Pronto! ${qaData.length} Q&As carregados.` : "Base de conhecimento vazia ou não carregada. Verifique as mensagens anteriores ou tente atualizar.";
-            if (qaData.length > 0 && chatArea.children.length <= 1) { // Evita mensagem duplicada se já houver erro
-                 addBotMessage("Olá! Como posso ajudar você hoje?");
-            } else if (qaData.length === 0 && chatArea.children.length <= 1) {
-                addBotMessage("A base de conhecimento está vazia ou não pôde ser carregada. Por favor, verifique as configurações e tente atualizar.");
+            
+            if (qaData.length > 0) {
+                updateStatus("Pronto para responder", "success");
+                updateSuggestions();
+                if (chatArea.children.length <= 0) {
+                    addBotMessage("Olá! Sou o NeuroAssist, seu assistente de IA. Como posso ajudar você hoje?");
+                }
+            } else {
+                updateStatus("Base de conhecimento vazia", "warning");
+                addBotMessage("A base de conhecimento está vazia. Por favor, atualize os dados ou configure a planilha.");
             }
         }
 
-        // 4. Chat Logic
-        function addMessageToChat(message, sender) {
+        // 4. Lógica do chat
+        function addMessageToChat(message, sender, isTyping = false) {
+            if (isTyping) {
+                const typingDiv = document.createElement('div');
+                typingDiv.className = 'typing-indicator';
+                typingDiv.id = 'typingIndicator';
+                for (let i = 0; i < 3; i++) {
+                    const dot = document.createElement('div');
+                    dot.className = 'typing-dot';
+                    typingDiv.appendChild(dot);
+                }
+                chatArea.appendChild(typingDiv);
+                chatArea.scrollTop = chatArea.scrollHeight;
+                return typingDiv;
+            }
+
             const messageDiv = document.createElement('div');
-            messageDiv.classList.add('message', sender === 'user' ? 'user-message' : 'bot-message');
-            messageDiv.textContent = message;
+            messageDiv.className = `message ${sender}-message`;
+            
+            const messageContent = document.createElement('div');
+            messageContent.textContent = message;
+            messageDiv.appendChild(messageContent);
+            
+            const timeDiv = document.createElement('div');
+            timeDiv.className = 'message-time';
+            timeDiv.textContent = formatTime(new Date());
+            messageDiv.appendChild(timeDiv);
+            
+            // Adiciona menu de contexto
+            messageDiv.addEventListener('contextmenu', (e) => {
+                e.preventDefault();
+                selectedMessage = messageDiv;
+                showContextMenu(e.clientX, e.clientY);
+            });
+
             chatArea.appendChild(messageDiv);
             chatArea.scrollTop = chatArea.scrollHeight;
+            
+            return messageDiv;
+        }
+
+        function showContextMenu(x, y) {
+            contextMenu.style.display = 'block';
+            contextMenu.style.left = `${x}px`;
+            contextMenu.style.top = `${y}px`;
+            
+            // Fecha o menu se clicar fora
+            const closeMenu = (e) => {
+                if (!contextMenu.contains(e.target)) {
+                    contextMenu.style.display = 'none';
+                    document.removeEventListener('click', closeMenu);
+                }
+            };
+            
+            document.addEventListener('click', closeMenu);
         }
 
         function addUserMessage(message) {
-            addMessageToChat(message, 'user');
+            return addMessageToChat(message, 'user');
         }
 
         function addBotMessage(message) {
-            addMessageToChat(message, 'bot');
+            // Remove o indicador de digitação se existir
+            const typingIndicator = document.getElementById('typingIndicator');
+            if (typingIndicator) {
+                chatArea.removeChild(typingIndicator);
+            }
+            
+            // Simula digitação para mensagens mais longas
+            if (message.length > 40) {
+                const typingDiv = addMessageToChat('', 'bot', true);
+                
+                clearTimeout(typingTimeout);
+                typingTimeout = setTimeout(() => {
+                    chatArea.removeChild(typingDiv);
+                    return addMessageToChat(message, 'bot');
+                }, Math.min(message.length * 30, 2000)); // Máximo de 2 segundos
+            } else {
+                return addMessageToChat(message, 'bot');
+            }
+        }
+
+        function formatTime(date) {
+            return date.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
         }
 
         async function handleQuestion() {
@@ -404,71 +712,170 @@
 
             addUserMessage(questionText);
             questionInput.value = '';
+            questionInput.focus();
+            
+            // Mostra que o bot está "digitando"
+            addMessageToChat('', 'bot', true);
+            
+            // Simula um pequeno atraso para processamento
+            setTimeout(async () => {
+                if (!fuse || qaData.length === 0) {
+                    addBotMessage("Minha base de conhecimento não está carregada. Por favor, atualize os dados.");
+                    return;
+                }
 
-            if (SHEET_ID === "COLOQUE_O_ID_DA_SUA_PLANILHA_AQUI" || !SHEET_ID) {
-                 addBotMessage("ERRO: O ID da Planilha (SHEET_ID) não foi configurado no código. Não posso buscar respostas.");
-                 return;
-            }
+                // Primeiro verifica por correspondências exatas
+                const exactMatch = qaData.find(item => 
+                    item.question.toLowerCase() === questionText.toLowerCase()
+                );
 
-            if (!fuse || qaData.length === 0) {
-                addBotMessage("Desculpe, a base de conhecimento não está carregada ou está vazia. Tente clicar em 'Atualizar Base de Conhecimento'.");
+                if (exactMatch) {
+                    addBotMessage(exactMatch.answer);
+                    return;
+                }
+
+                // Se não encontrar exato, usa o Fuse.js para busca difusa
+                const results = fuse.search(questionText, { limit: 3 });
+                
+                if (results.length > 0) {
+                    const bestMatch = results[0];
+                    
+                    if (bestMatch.score < 0.3) {
+                        // Boa correspondência
+                        addBotMessage(bestMatch.item.answer);
+                    } else if (bestMatch.score < 0.5) {
+                        // Correspondência razoável - adiciona contexto
+                        addBotMessage(`${bestMatch.item.answer}\n\n(Se esta resposta não for o que você procura, por favor reformule sua pergunta.)`);
+                    } else {
+                        // Correspondência fraca - oferece opções
+                        if (results.length > 1) {
+                            const possibleAnswers = results.slice(0, 3).map((r, i) => 
+                                `\n${i+1}. ${r.item.question}`
+                            ).join('');
+                            
+                            addBotMessage(`Não tenho certeza sobre sua pergunta. Você quis dizer uma dessas opções?${possibleAnswers}\n\nResponda com o número correspondente ou reformule sua pergunta.`);
+                        } else {
+                            addBotMessage("Não encontrei uma resposta exata para sua pergunta. Poderia reformular ou ser mais específico?");
+                        }
+                    }
+                } else {
+                    // Nenhuma correspondência encontrada
+                    addBotMessage("Não encontrei informações sobre isso em minha base de conhecimento. Deseja que eu tente encontrar em outra fonte ou reformular sua pergunta?");
+                }
+            }, 800);
+        }
+
+        // 5. Sugestões de perguntas
+        function updateSuggestions() {
+            if (!qaData || qaData.length === 0) {
+                suggestionsContainer.style.display = 'none';
                 return;
             }
 
-            const results = fuse.search(questionText);
+            suggestionsContainer.innerHTML = '';
+            
+            // Seleciona perguntas aleatórias para sugestões
+            const shuffled = [...qaData].sort(() => 0.5 - Math.random());
+            const selected = shuffled.slice(0, SUGGESTION_COUNT);
+            
+            selected.forEach(item => {
+                const chip = document.createElement('div');
+                chip.className = 'suggestion-chip';
+                chip.textContent = item.question;
+                chip.addEventListener('click', () => {
+                    questionInput.value = item.question;
+                    questionInput.focus();
+                });
+                suggestionsContainer.appendChild(chip);
+            });
+            
+            suggestionsContainer.style.display = 'flex';
+        }
 
-            if (results.length > 0) {
-                const bestMatch = results[0].item;
-                addBotMessage(bestMatch.answer);
-            } else {
-                addBotMessage("Desculpe, não encontrei uma resposta para essa pergunta. Tente reformular ou perguntar de outra forma.");
+        // 6. Atualização de status
+        function updateStatus(text, status) {
+            statusText.textContent = text;
+            statusDot.className = 'status-dot';
+            
+            if (status === 'success') {
+                statusDot.classList.add('success');
+            } else if (status === 'loading') {
+                statusDot.classList.add('loading');
+            } else if (status === 'error') {
+                statusDot.classList.add('error');
+            } else if (status === 'warning') {
+                statusDot.classList.add('warning');
             }
         }
 
-        // 5. Initialization and Event Listeners
-        async function initializeApp(forceFetch = false) {
-            statusDiv.textContent = "Inicializando assistente...";
+        // 7. Menu de contexto
+        copyMenuItem.addEventListener('click', () => {
+            if (selectedMessage) {
+                const text = selectedMessage.querySelector('div').textContent;
+                navigator.clipboard.writeText(text).then(() => {
+                    const originalText = copyMenuItem.textContent;
+                    copyMenuItem.textContent = "Copiado!";
+                    setTimeout(() => {
+                        copyMenuItem.textContent = originalText;
+                        contextMenu.style.display = 'none';
+                    }, 1000);
+                });
+            }
+        });
+
+        deleteMenuItem.addEventListener('click', () => {
+            if (selectedMessage) {
+                chatArea.removeChild(selectedMessage);
+                selectedMessage = null;
+                contextMenu.style.display = 'none';
+            }
+        });
+
+        // 8. Inicialização do aplicativo
+        async function initializeApp(forceUpdate = false) {
             try {
                 await openDB();
                 let data = await loadDataFromDB();
                 
-                if (forceFetch || !data || data.length === 0) {
-                    if(forceFetch) {
-                        statusDiv.textContent = "Forçando atualização da base de conhecimento...";
-                        await clearDB();
-                    } else {
-                        statusDiv.textContent = "Nenhum dado local encontrado. Buscando da planilha...";
-                    }
+                if (forceUpdate || !data || data.length === 0) {
+                    if (forceUpdate) await clearDB();
                     data = await fetchSheetData();
-                    if (data && data.length > 0) {
-                        await saveDataToDB(data);
-                    }
-                } else {
-                    statusDiv.textContent = "Dados carregados do armazenamento local.";
+                    if (data.length > 0) await saveDataToDB(data);
                 }
+                
                 initializeFuse(data);
             } catch (error) {
                 console.error("Erro na inicialização:", error);
-                statusDiv.textContent = "Erro ao inicializar. Verifique o console.";
-                addBotMessage("Ocorreu um erro crítico durante a inicialização. Por favor, tente recarregar a página ou atualizar a base de conhecimento.");
+                updateStatus("Erro na inicialização", "error");
+                addBotMessage("Ocorreu um erro ao inicializar. Por favor, recarregue a página ou tente novamente mais tarde.");
             }
         }
 
+        // 9. Event listeners
         askButton.addEventListener('click', handleQuestion);
-        questionInput.addEventListener('keypress', (event) => {
-            if (event.key === 'Enter') {
+        
+        questionInput.addEventListener('keypress', (e) => {
+            if (e.key === 'Enter') {
                 handleQuestion();
             }
         });
-        
-        updateButton.addEventListener('click', () => {
-            addBotMessage("Iniciando atualização da base de conhecimento...");
-            initializeApp(true);
+
+        // Botão de atualização via clique duplo no header
+        let lastClick = 0;
+        document.querySelector('header').addEventListener('click', (e) => {
+            const now = Date.now();
+            if (now - lastClick < 300) { // 300ms para clique duplo
+                addBotMessage("Atualizando base de conhecimento...");
+                initializeApp(true);
+            }
+            lastClick = now;
         });
 
-        // Start the app
+        // Inicializa o app
         initializeApp();
 
+        // Foco automático no input
+        questionInput.focus();
     </script>
 </body>
 </html>
