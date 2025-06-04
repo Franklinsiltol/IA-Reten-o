@@ -187,9 +187,8 @@
     <script>
         // Configurações
         const CONFIG = {
-            SHEET_ID: "1pgoYg76gutqLnOlsk3mN40HfzN9n-x_6oJQcfkZEBzY",
-            SHEET_NAME: "BaseRespostas",
-            CACHE_TTL: 24 * 60 * 60 * 1000,
+            API_URL: "https://script.google.com/a/macros/sumup.com/s/AKfycbw-YHUWWUmKUFDOrDIS6pklj_WL0QfnqgxZcDOJXQy8Csm2XE1JhCZhNqATnB-gLoqZdQ/exec",
+            CACHE_TTL: 24 * 60 * 60 * 1000, // 24 horas
             SIMILARITY_THRESHOLD: 0.65,
             MAX_HISTORY: 5
         };
@@ -215,7 +214,7 @@
             });
         });
 
-        // Carrega a base de conhecimento da planilha Google Sheets
+        // Carrega a base de conhecimento via API do Google Apps Script
         async function loadKnowledgeBase() {
             try {
                 // Verifica se há dados em cache
@@ -231,47 +230,36 @@
                     }
                 }
                 
-                // Se não há cache válido, carrega da planilha usando um proxy CORS
-                const proxyUrl = 'https://api.allorigins.win/raw?url=';
-                const sheetUrl = encodeURIComponent(`https://docs.google.com/spreadsheets/d/${CONFIG.SHEET_ID}/gviz/tq?tqx=out:csv&sheet=${CONFIG.SHEET_NAME}`);
-                const response = await fetch(proxyUrl + sheetUrl);
+                // Se não há cache válido, carrega da API
+                const apiUrl = `${CONFIG.API_URL}?action=getKnowledgeBase`;
+                const response = await fetch(apiUrl);
                 
                 if (!response.ok) {
-                    throw new Error('Erro ao carregar a planilha');
+                    throw new Error('Erro ao carregar a base de conhecimento');
                 }
                 
-                let csvData = await response.text();
+                const result = await response.json();
                 
-                // Processa o CSV - tratamento especial para seu formato
-                const rows = csvData.split('\n').slice(1); // Ignora o cabeçalho
-                
-                knowledgeBase = rows.map(row => {
-                    // Remove aspas extras e divide por tabulação
-                    const cleanedRow = row.replace(/^"|"$/g, '').replace(/""/g, '"');
-                    const parts = cleanedRow.split('\t');
+                if (result.status === 'success') {
+                    knowledgeBase = result.data;
                     
-                    if (parts.length >= 2) {
-                        return {
-                            question: parts[0].trim(),
-                            answer: parts[1].trim()
-                        };
-                    }
-                    return null;
-                }).filter(entry => entry && entry.question && entry.answer);
-                
-                // Atualiza o cache
-                localStorage.setItem('knowledgeBase', JSON.stringify(knowledgeBase));
-                localStorage.setItem('knowledgeBaseTimestamp', Date.now().toString());
-                console.log('Dados carregados da planilha e armazenados em cache');
+                    // Atualiza o cache
+                    localStorage.setItem('knowledgeBase', JSON.stringify(knowledgeBase));
+                    localStorage.setItem('knowledgeBaseTimestamp', Date.now().toString());
+                    console.log('Dados carregados da API e armazenados em cache');
+                } else {
+                    throw new Error(result.message || 'Erro desconhecido ao carregar dados');
+                }
             } catch (error) {
                 console.error('Erro ao carregar a base de conhecimento:', error);
-                addBotMessage("Estou atualizando meu conhecimento. Por favor, tente novamente em alguns instantes.");
+                addBotMessage("Estou tendo dificuldades para acessar meu conhecimento atualizado. Usando informações armazenadas temporariamente.");
                 
                 // Tenta usar dados do cache mesmo se expirados
                 const cachedData = localStorage.getItem('knowledgeBase');
                 if (cachedData) {
                     knowledgeBase = JSON.parse(cachedData);
-                    addBotMessage("Estou usando informações armazenadas temporariamente.");
+                } else {
+                    addBotMessage("Não consegui carregar nenhuma informação. Por favor, tente novamente mais tarde.");
                 }
             }
         }
@@ -335,14 +323,13 @@
                 const bestMatch = findBestMatch(processedMessage);
                 
                 if (bestMatch && bestMatch.score >= CONFIG.SIMILARITY_THRESHOLD) {
-                    // Personaliza a resposta
                     return personalizeResponse(bestMatch.answer, message);
                 } else {
                     return "Desculpe, não encontrei informações sobre isso na minha base de conhecimento sobre retenção. Você pode reformular a pergunta ou perguntar sobre outro assunto relacionado à retenção de clientes?";
                 }
             } catch (error) {
                 console.error('Erro ao gerar resposta:', error);
-                return "Houve um erro ao processar sua pergunta sobre retenção. Por favor, tente novamente.";
+                return "Houve um erro ao processar sua pergunta. Por favor, tente novamente.";
             }
         }
 
@@ -374,7 +361,7 @@
             return bestMatch;
         }
 
-        // Calcula similaridade entre strings (usando Jaccard similarity aprimorado)
+        // Calcula similaridade entre strings
         function calculateSimilarity(str1, str2) {
             const words1 = str1.split(' ');
             const words2 = str2.split(' ');
@@ -391,18 +378,14 @@
 
         // Personaliza a resposta com base na pergunta original
         function personalizeResponse(answer, originalQuestion) {
-            // Verifica se a pergunta começa com pronome interrogativo
             const interrogativePronouns = ['quem', 'o que', 'qual', 'quais', 'onde', 'quando', 'como', 'por que', 'porque'];
             const firstWord = originalQuestion.toLowerCase().split(' ')[0];
             
             if (interrogativePronouns.includes(firstWord)) {
-                // Para perguntas diretas, formata como resposta completa
                 return `Com base na sua pergunta sobre retenção "${originalQuestion}", ${answer.toLowerCase()}`;
             } else if (originalQuestion.endsWith('?')) {
-                // Para outras perguntas com interrogação
                 return `Sua pergunta sobre retenção foi: "${originalQuestion}". ${answer.charAt(0).toUpperCase() + answer.slice(1)}`;
             } else {
-                // Para afirmações ou comandos
                 return answer;
             }
         }
