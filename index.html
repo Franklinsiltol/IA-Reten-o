@@ -3,125 +3,73 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Assistente SumUp Retenção</title>
+    <title>Assistente SumUp</title>
     <style>
         body {
-            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            font-family: Arial, sans-serif;
             margin: 0;
             padding: 0;
-            background-color: #f5f5f5;
-            color: #000000;
-            display: flex;
-            flex-direction: column;
+            background: #f5f5f5;
             height: 100vh;
-        }
-
-        header {
-            background-color: #000000;
-            color: #ffffff;
-            padding: 1rem;
-            text-align: center;
-            box-shadow: 0 2px 5px rgba(0,0,0,0.1);
-        }
-
-        #chat-container {
-            flex: 1;
             display: flex;
             flex-direction: column;
+        }
+        header {
+            background: #000;
+            color: white;
+            padding: 15px;
+            text-align: center;
+        }
+        #chat {
+            flex: 1;
             max-width: 800px;
-            margin: 1rem auto;
+            margin: 20px auto;
             width: 90%;
-            background-color: #ffffff;
+            background: white;
             border-radius: 10px;
             box-shadow: 0 2px 10px rgba(0,0,0,0.1);
-            overflow: hidden;
-        }
-
-        #chat-messages {
-            flex: 1;
-            padding: 1rem;
-            overflow-y: auto;
             display: flex;
             flex-direction: column;
-            gap: 0.75rem;
         }
-
-        .message {
-            max-width: 80%;
-            padding: 0.75rem 1rem;
-            border-radius: 18px;
-            line-height: 1.4;
-        }
-
-        .user-message {
-            align-self: flex-end;
-            background-color: #e0e0e0;
-            border-bottom-right-radius: 4px;
-        }
-
-        .bot-message {
-            align-self: flex-start;
-            background-color: #000000;
-            color: #ffffff;
-            border-bottom-left-radius: 4px;
-        }
-
-        #input-container {
-            display: flex;
-            padding: 1rem;
-            border-top: 1px solid #e0e0e0;
-            background-color: white;
-        }
-
-        #user-input {
+        #messages {
             flex: 1;
-            padding: 0.75rem;
-            border: 1px solid #ddd;
-            border-radius: 24px;
-            outline: none;
-            font-size: 1rem;
+            padding: 15px;
+            overflow-y: auto;
         }
-
-        #send-button {
-            background-color: #000000;
-            color: #ffffff;
-            border: none;
-            border-radius: 24px;
-            padding: 0 1.5rem;
-            margin-left: 0.5rem;
-            cursor: pointer;
-            font-size: 1rem;
-        }
-
-        .typing-indicator {
-            display: inline-block;
-            padding: 0.75rem 1rem;
-            background-color: #000000;
-            color: #ffffff;
+        .msg {
+            max-width: 80%;
+            padding: 10px 15px;
+            margin: 5px 0;
             border-radius: 18px;
-            border-bottom-left-radius: 4px;
         }
-
-        .typing-indicator span {
-            height: 8px;
-            width: 8px;
-            background-color: #ffffff;
-            border-radius: 50%;
-            display: inline-block;
-            margin: 0 2px;
-            animation: bounce 1.5s infinite ease-in-out;
+        .user {
+            background: #e0e0e0;
+            align-self: flex-end;
         }
-
-        @keyframes bounce {
-            0%, 60%, 100% { transform: translateY(0); }
-            30% { transform: translateY(-5px); }
+        .bot {
+            background: #000;
+            color: white;
+            align-self: flex-start;
         }
-
-        footer {
-            text-align: center;
-            padding: 0.5rem;
-            font-size: 0.8rem;
-            color: #666;
+        #input-area {
+            padding: 15px;
+            display: flex;
+            border-top: 1px solid #eee;
+        }
+        #input {
+            flex: 1;
+            padding: 10px 15px;
+            border: 1px solid #ddd;
+            border-radius: 20px;
+        }
+        #send {
+            background: #000;
+            color: white;
+            border: none;
+            border-radius: 20px;
+            padding: 0 20px;
+            margin-left: 10px;
+            cursor: pointer;
         }
     </style>
 </head>
@@ -129,145 +77,89 @@
     <header>
         <h1>Assistente SumUp Retenção</h1>
     </header>
-
-    <div id="chat-container">
-        <div id="chat-messages"></div>
-        <div id="input-container">
-            <input type="text" id="user-input" placeholder="Digite sua pergunta..." autocomplete="off">
-            <button id="send-button">Enviar</button>
+    
+    <div id="chat">
+        <div id="messages"></div>
+        <div id="input-area">
+            <input type="text" id="input" placeholder="Digite sua pergunta...">
+            <button id="send">Enviar</button>
         </div>
     </div>
 
-    <footer>
-        Assistente SumUp Retenção - Baseado em conhecimento da planilha Google Sheets
-    </footer>
-
     <script>
-        // Configuração - SUBSTITUA pela URL que você copiou do Apps Script
-        const API_URL = "SUA_URL_DO_APPS_SCRIPT_AQUI";
+        // Cole a URL que você copiou do Apps Script aqui
+        const API_URL = "COLE_SUA_URL_DO_APPS_SCRIPT_AQUI";
+        let knowledge = [];
         
-        // Elementos da tela
-        const chatMessages = document.getElementById('chat-messages');
-        const userInput = document.getElementById('user-input');
-        const sendButton = document.getElementById('send-button');
-        
-        // Variáveis globais
-        let knowledgeBase = [];
-        
-        // Quando a página carregar
-        document.addEventListener('DOMContentLoaded', async () => {
-            // Mostra mensagem inicial
-            addBotMessage("Olá! Sou o Assistente SumUp Retenção. Carregando informações...");
+        // Inicia o chat
+        async function startChat() {
+            addMessage("Olá! Sou o Assistente SumUp. Carregando informações...", "bot");
             
-            // Carrega os dados
-            await loadKnowledgeBase();
-            
-            // Configura botões
-            sendButton.addEventListener('click', handleUserMessage);
-            userInput.addEventListener('keypress', (e) => {
-                if (e.key === 'Enter') handleUserMessage();
-            });
-        });
-        
-        // Carrega as perguntas e respostas
-        async function loadKnowledgeBase() {
             try {
                 const response = await fetch(API_URL);
                 const data = await response.json();
                 
-                if (data.status === 'success') {
-                    knowledgeBase = data.data;
-                    addBotMessage("Pronto! Como posso ajudar você hoje com retenção de clientes?");
+                if (data.status === "success") {
+                    knowledge = data.data;
+                    addMessage("Pronto! Como posso ajudar com retenção de clientes?", "bot");
                 } else {
-                    throw new Error('Erro ao carregar dados');
+                    throw new Error("Erro nos dados");
                 }
             } catch (error) {
-                console.error(error);
-                addBotMessage("Estou com dificuldades para acessar informações atualizadas. Você pode tentar atualizar a página.");
+                addMessage("⚠️ Estou com acesso limitado. Algumas respostas podem não estar atualizadas.", "bot");
             }
+            
+            document.getElementById("send").onclick = sendMessage;
+            document.getElementById("input").onkeypress = function(e) {
+                if (e.key === "Enter") sendMessage();
+            };
         }
         
-        // Processa a mensagem do usuário
-        async function handleUserMessage() {
-            const message = userInput.value.trim();
-            if (!message) return;
+        // Envia mensagem
+        function sendMessage() {
+            const input = document.getElementById("input");
+            const text = input.value.trim();
             
-            addUserMessage(message);
-            userInput.value = '';
+            if (!text) return;
             
-            // Mostra que está digitando
-            showTypingIndicator();
+            addMessage(text, "user");
+            input.value = "";
             
-            // Espera um pouco para parecer natural
             setTimeout(() => {
-                // Remove o indicador de digitação
-                removeTypingIndicator();
-                
-                // Obtém a resposta
-                const response = getResponse(message);
-                addBotMessage(response);
-            }, 1000);
+                const answer = getAnswer(text);
+                addMessage(answer, "bot");
+            }, 800);
         }
         
-        // Encontra a melhor resposta
-        function getResponse(message) {
-            const lowerMessage = message.toLowerCase();
-            
-            // 1. Tenta encontrar correspondência exata
-            const exactMatch = knowledgeBase.find(item => 
-                item.question.toLowerCase() === lowerMessage
-            );
-            
-            if (exactMatch) {
-                return exactMatch.answer;
+        // Encontra resposta
+        function getAnswer(question) {
+            if (knowledge.length === 0) {
+                return "Desculpe, não consegui carregar minhas informações. Tente mais tarde.";
             }
             
-            // 2. Tenta encontrar correspondência parcial
-            const partialMatch = knowledgeBase.find(item => 
-                item.question.toLowerCase().includes(lowerMessage) || 
-                lowerMessage.includes(item.question.toLowerCase())
-            );
+            const cleanQ = question.toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "");
             
-            if (partialMatch) {
-                return partialMatch.answer;
+            for (const item of knowledge) {
+                const cleanItem = item.question.toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "");
+                if (cleanItem.includes(cleanQ) || cleanQ.includes(cleanItem)) {
+                    return item.answer;
+                }
             }
             
-            // 3. Se não encontrar, mostra mensagem padrão
-            return "Desculpe, não encontrei informações sobre isso. Você pode reformular ou perguntar sobre outro assunto relacionado à retenção de clientes?";
+            return "Não encontrei informações sobre isso. Pergunte sobre retenção, cancelamentos ou fidelização.";
         }
         
-        // Funções auxiliares para mostrar mensagens
-        function addUserMessage(text) {
-            const div = document.createElement('div');
-            div.className = 'message user-message';
+        // Adiciona mensagem no chat
+        function addMessage(text, sender) {
+            const div = document.createElement("div");
+            div.className = `msg ${sender}`;
             div.textContent = text;
-            chatMessages.appendChild(div);
-            chatMessages.scrollTop = chatMessages.scrollHeight;
+            document.getElementById("messages").appendChild(div);
+            document.getElementById("messages").scrollTop = document.getElementById("messages").scrollHeight;
         }
         
-        function addBotMessage(text) {
-            const div = document.createElement('div');
-            div.className = 'message bot-message';
-            div.textContent = text;
-            chatMessages.appendChild(div);
-            chatMessages.scrollTop = chatMessages.scrollHeight;
-        }
-        
-        function showTypingIndicator() {
-            const div = document.createElement('div');
-            div.className = 'message bot-message typing-indicator';
-            div.innerHTML = '<span></span><span></span><span></span>';
-            div.id = 'typing-indicator';
-            chatMessages.appendChild(div);
-            chatMessages.scrollTop = chatMessages.scrollHeight;
-        }
-        
-        function removeTypingIndicator() {
-            const indicator = document.getElementById('typing-indicator');
-            if (indicator) {
-                chatMessages.removeChild(indicator);
-            }
-        }
+        // Inicia quando a página carrega
+        window.onload = startChat;
     </script>
 </body>
 </html>
