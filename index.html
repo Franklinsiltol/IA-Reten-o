@@ -3,548 +3,786 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Assistente Local com Google Sheets (Auto-Update)</title>
-    <script src="https://cdn.jsdelivr.net/npm/fuse.js/dist/fuse.min.js"></script>
+    <title>NeuroAssist - Assistente Inteligente</title>
+    <script src="https://cdn.jsdelivr.net/npm/fuse.js@6.6.2"></script>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
     <style>
-        body {
-            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+        :root {
+            --black: #121212;
+            --dark-gray: #1E1E1E;
+            --medium-gray: #2D2D2D;
+            --light-gray: #3A3A3A;
+            --white: #F5F5F5;
+            --accent: #4CAF50;
+            --primary: #007BFF;
+            --error: #F44336;
+        }
+
+        * {
+            box-sizing: border-box;
             margin: 0;
-            padding: 20px;
-            background-color: #f4f4f9;
-            color: #333;
+            padding: 0;
+        }
+
+        body {
+            font-family: 'Inter', sans-serif;
+            background-color: var(--black);
+            color: var(--white);
+            line-height: 1.6;
             display: flex;
             flex-direction: column;
-            align-items: center;
             min-height: 100vh;
         }
 
-        .container {
-            background-color: #fff;
-            padding: 30px;
-            border-radius: 10px;
-            box-shadow: 0 5px 15px rgba(0, 0, 0, 0.1);
-            width: 100%;
-            max-width: 700px;
-            box-sizing: border-box;
-        }
-
-        h1 {
-            color: #007bff;
-            text-align: center;
-            margin-bottom: 20px;
-        }
-
-        .input-area {
+        .app-container {
             display: flex;
-            margin-bottom: 20px;
-            gap: 10px;
+            flex-direction: column;
+            max-width: 800px;
+            width: 100%;
+            margin: 0 auto;
+            height: 100vh;
+            overflow: hidden;
         }
 
-        #questionInput {
-            flex-grow: 1;
-            padding: 12px 15px;
-            border: 1px solid #ddd;
-            border-radius: 5px;
-            font-size: 16px;
-            outline: none;
+        header {
+            background-color: var(--dark-gray);
+            padding: 1rem;
+            border-bottom: 1px solid var(--medium-gray);
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
         }
 
-        #questionInput:focus {
-            border-color: #007bff;
-            box-shadow: 0 0 0 0.2rem rgba(0, 123, 255, 0.25);
+        .logo {
+            display: flex;
+            align-items: center;
+            gap: 0.75rem;
         }
 
-        #askButton, #updateButton {
-            padding: 12px 20px;
-            background-color: #007bff;
-            color: white;
-            border: none;
-            border-radius: 5px;
-            cursor: pointer;
-            font-size: 16px;
-            transition: background-color 0.3s ease;
+        .logo-icon {
+            width: 32px;
+            height: 32px;
+            background-color: var(--accent);
+            border-radius: 50%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            color: var(--black);
+            font-weight: bold;
         }
 
-        #askButton:hover, #updateButton:hover {
-            background-color: #0056b3;
+        .logo-text {
+            font-weight: 600;
+            font-size: 1.25rem;
         }
-        
-        #updateButton {
-            background-color: #28a745;
-            margin-bottom: 20px;
-            align-self: flex-start; 
+
+        .status-indicator {
+            display: flex;
+            align-items: center;
+            gap: 0.5rem;
+            font-size: 0.85rem;
         }
-        #updateButton:hover {
-            background-color: #1e7e34;
+
+        .status-dot {
+            width: 10px;
+            height: 10px;
+            border-radius: 50%;
+            background-color: var(--accent);
+        }
+
+        .status-dot.loading {
+            background-color: #FF9800;
+            animation: pulse 1.5s infinite;
+        }
+
+        .status-dot.error {
+            background-color: var(--error);
+        }
+
+        @keyframes pulse {
+            0% { opacity: 0.5; }
+            50% { opacity: 1; }
+            100% { opacity: 0.5; }
+        }
+
+        .chat-container {
+            flex: 1;
+            display: flex;
+            flex-direction: column;
+            overflow: hidden;
+            background-color: var(--dark-gray);
         }
 
         .chat-area {
-            border: 1px solid #eee;
-            border-radius: 5px;
-            padding: 15px;
-            height: 300px;
+            flex: 1;
             overflow-y: auto;
-            background-color: #f9f9f9;
-            margin-bottom: 10px;
+            padding: 1.5rem;
+            display: flex;
+            flex-direction: column;
+            gap: 1.25rem;
+            scrollbar-width: thin;
+            scrollbar-color: var(--light-gray) var(--dark-gray);
+        }
+
+        .chat-area::-webkit-scrollbar {
+            width: 6px;
+        }
+
+        .chat-area::-webkit-scrollbar-track {
+            background: var(--dark-gray);
+        }
+
+        .chat-area::-webkit-scrollbar-thumb {
+            background-color: var(--light-gray);
+            border-radius: 3px;
         }
 
         .message {
-            padding: 10px;
-            margin-bottom: 10px;
-            border-radius: 8px;
-            max-width: 80%;
-            word-wrap: break-word;
+            max-width: 85%;
+            padding: 0.75rem 1rem;
+            border-radius: 12px;
+            line-height: 1.5;
+            position: relative;
+            animation: fadeIn 0.3s ease-out;
+            box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+        }
+
+        @keyframes fadeIn {
+            from { opacity: 0; transform: translateY(10px); }
+            to { opacity: 1; transform: translateY(0); }
         }
 
         .user-message {
-            background-color: #007bff;
-            color: white;
+            background-color: var(--primary);
+            color: var(--white);
             margin-left: auto;
-            text-align: right;
+            border-bottom-right-radius: 4px;
         }
 
         .bot-message {
-            background-color: #e9ecef;
-            color: #333;
+            background-color: var(--black);
+            color: var(--white);
             margin-right: auto;
-        }
-        
-        .status-message {
-            font-style: italic;
-            color: #6c757d;
-            text-align: center;
-            font-size: 0.9em;
-            margin-top: 10px;
-        }
-        .auto-update-status { /* NOVO */
-            font-size: 0.8em;
-            color: #888;
-            text-align: right;
-            margin-top: 5px;
+            border-bottom-left-radius: 4px;
+            border: 1px solid var(--medium-gray);
         }
 
-        @media (max-width: 600px) {
-            .input-area {
-                flex-direction: column;
+        .message-time {
+            font-size: 0.7rem;
+            opacity: 0.7;
+            margin-top: 0.25rem;
+            text-align: right;
+        }
+
+        .input-area {
+            padding: 1rem;
+            background-color: var(--dark-gray);
+            border-top: 1px solid var(--medium-gray);
+            display: flex;
+            gap: 0.75rem;
+        }
+
+        #questionInput {
+            flex: 1;
+            padding: 0.75rem 1rem;
+            border-radius: 8px;
+            border: 1px solid var(--medium-gray);
+            background-color: var(--black);
+            color: var(--white);
+            font-family: 'Inter', sans-serif;
+            font-size: 1rem;
+            outline: none;
+            transition: border-color 0.2s;
+        }
+
+        #questionInput:focus {
+            border-color: var(--primary);
+        }
+
+        #questionInput::placeholder {
+            color: var(--light-gray);
+        }
+
+        .button {
+            padding: 0.75rem 1.25rem;
+            border-radius: 8px;
+            border: none;
+            font-family: 'Inter', sans-serif;
+            font-weight: 500;
+            font-size: 1rem;
+            cursor: pointer;
+            transition: all 0.2s;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 0.5rem;
+        }
+
+        #askButton {
+            background-color: var(--primary);
+            color: var(--white);
+        }
+
+        #askButton:hover {
+            background-color: #0069d9;
+            transform: translateY(-1px);
+        }
+
+        #askButton:active {
+            transform: translateY(0);
+        }
+
+        #updateButton {
+            background-color: var(--accent);
+            color: var(--white);
+        }
+
+        #updateButton:hover {
+            background-color: #43a047;
+        }
+
+        .typing-indicator {
+            display: flex;
+            gap: 0.25rem;
+            padding: 0.75rem 1rem;
+            background-color: var(--black);
+            border-radius: 12px;
+            margin-right: auto;
+            border-bottom-left-radius: 4px;
+            border: 1px solid var(--medium-gray);
+            width: fit-content;
+        }
+
+        .typing-dot {
+            width: 8px;
+            height: 8px;
+            background-color: var(--white);
+            border-radius: 50%;
+            opacity: 0.4;
+            animation: typingAnimation 1.4s infinite ease-in-out;
+        }
+
+        .typing-dot:nth-child(1) {
+            animation-delay: 0s;
+        }
+
+        .typing-dot:nth-child(2) {
+            animation-delay: 0.2s;
+        }
+
+        .typing-dot:nth-child(3) {
+            animation-delay: 0.4s;
+        }
+
+        @keyframes typingAnimation {
+            0%, 60%, 100% { transform: translateY(0); opacity: 0.4; }
+            30% { transform: translateY(-5px); opacity: 1; }
+        }
+
+        .update-banner {
+            background-color: var(--medium-gray);
+            padding: 8px 16px;
+            text-align: center;
+            font-size: 0.9em;
+            animation: slideDown 0.5s ease-out;
+            border-bottom: 1px solid var(--accent);
+        }
+
+        @keyframes slideDown {
+            from { transform: translateY(-100%); }
+            to { transform: translateY(0); }
+        }
+
+        .auto-update-status {
+            font-size: 0.8em;
+            color: var(--light-gray);
+            text-align: right;
+            padding: 0.5rem 1rem;
+        }
+
+        @media (max-width: 768px) {
+            .app-container {
+                height: 100vh;
+                max-width: 100%;
             }
-            #questionInput {
-                margin-bottom: 10px;
+            
+            .message {
+                max-width: 90%;
+            }
+            
+            .input-area {
+                padding: 0.75rem;
+            }
+            
+            .button {
+                padding: 0.75rem;
             }
         }
     </style>
 </head>
 <body>
-    <div class="container">
-        <h1>Assistente Inteligente</h1>
-        <button id="updateButton">Atualizar Base de Conhecimento Agora</button>
-        <div class="input-area">
-            <input type="text" id="questionInput" placeholder="Faça sua pergunta aqui...">
-            <button id="askButton">Perguntar</button>
+    <div id="updateBanner" class="update-banner" style="display: none;">
+        Nova atualização disponível! <a href="#" id="refreshLink">Recarregar</a>
+    </div>
+    
+    <div class="app-container">
+        <header>
+            <div class="logo">
+                <div class="logo-icon">N</div>
+                <div class="logo-text">NeuroAssist</div>
+            </div>
+            <div class="status-indicator">
+                <div class="status-dot loading"></div>
+                <span id="statusText">Conectando...</span>
+            </div>
+        </header>
+
+        <div class="chat-container">
+            <div class="chat-area" id="chatArea">
+                <!-- Mensagens aparecerão aqui -->
+            </div>
+
+            <div class="input-area">
+                <input type="text" id="questionInput" placeholder="Digite sua mensagem..." autocomplete="off">
+                <button id="askButton" class="button">
+                    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+                        <path d="M22 2L11 13" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+                        <path d="M22 2L15 22L11 13L2 9L22 2Z" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+                    </svg>
+                </button>
+            </div>
+            <div id="autoUpdateStatus" class="auto-update-status"></div>
         </div>
-        <div class="chat-area" id="chatArea">
-            <!-- Messages will appear here -->
-        </div>
-        <div id="status" class="status-message">Carregando dados...</div>
-        <div id="autoUpdateStatus" class="auto-update-status"></div> <!-- NOVO -->
     </div>
 
     <script>
-        // ####################################################################################
-        // ##                                                                                ##
-        // ##  INSTRUÇÕES IMPORTANTES:                                                       ##
-        // ##  1. Encontre o ID da sua planilha do Google Sheets.                             ##
-        // ##     Abra sua planilha no Google Sheets. A URL no navegador será algo como:     ##
-        // ##     https://docs.google.com/spreadsheets/d/SEU_SHEET_ID_ESTA_AQUI/edit...    ##
-        // ##     Copie a parte que é o SEU_SHEET_ID_ESTA_AQUI.                              ##
-        // ##  2. Cole esse ID na linha abaixo, substituindo "COLOQUE_O_ID_DA_SUA_PLANILHA_AQUI".##
-        // ##                                                                                ##
-        // ####################################################################################
-        const SHEET_ID = "1pgoYg76gutqLnOlsk3mN40HfzN9n-x_6oJQcfkZEBzY";
+        // Configurações
+        const CONFIG = {
+            SHEET_ID: "1pgoYg76gutqLnOlsk3mN40HfzN9n-x_6oJQcfkZEBzY",
+            SHEET_NAME: "BaseRespostas",
+            AUTO_UPDATE_INTERVAL: 600000, // 10 minutos em milissegundos
+            DB_NAME: "NeuroAssistDB",
+            STORE_NAME: "KnowledgeBase",
+            DATA_KEY: "qaData",
+            LAST_UPDATE_KEY: "lastUpdate"
+        };
 
-        // ####################################################################################
-        // ##                                                                                ##
-        // ##  INSTRUÇÕES IMPORTANTES:                                                       ##
-        // ##  1. Verifique o nome EXATO da aba (planilha individual) que você publicou.      ##
-        // ##  2. Substitua "BaseRespostas" abaixo pelo nome EXATO da sua aba, se for        ##
-        // ##     diferente. Se sua aba se chama "Página1", coloque "Página1".                ##
-        // ##                                                                                ##
-        // ####################################################################################
-        const SHEET_NAME = "BaseRespostas"; // <--- VERIFIQUE E ALTERE SE NECESSÁRIO
-
-        // NOVO: Intervalo para verificação automática de atualizações (em milissegundos)
-        // 600000 ms = 10 minutos. 300000 ms = 5 minutos.
-        const AUTO_UPDATE_INTERVAL_MS = 600000; 
-
-        const DB_NAME = "ChatBotDB";
-        const STORE_NAME = "QAPairs";
-        const DATA_KEY = "qaData";
-        const LAST_CSV_KEY = "lastCsvText"; // NOVO: Chave para armazenar o último CSV no DB
-
+        // Elementos da interface
         const questionInput = document.getElementById('questionInput');
         const askButton = document.getElementById('askButton');
         const updateButton = document.getElementById('updateButton');
         const chatArea = document.getElementById('chatArea');
-        const statusDiv = document.getElementById('status');
-        const autoUpdateStatusDiv = document.getElementById('autoUpdateStatus'); // NOVO
+        const statusText = document.getElementById('statusText');
+        const statusDot = document.querySelector('.status-dot');
+        const autoUpdateStatus = document.getElementById('autoUpdateStatus');
+        const updateBanner = document.getElementById('updateBanner');
+        const refreshLink = document.getElementById('refreshLink');
 
+        // Variáveis globais
         let db;
         let fuse;
         let qaData = [];
-        let lastFetchedCsvText = ""; // NOVO: Armazena o texto do último CSV buscado
-        let autoUpdateIntervalId = null; // NOVO
+        let lastUpdateHash = "";
+        let autoUpdateInterval;
 
-        function openDB() {
-            return new Promise((resolve, reject) => {
-                const request = indexedDB.open(DB_NAME, 2); // Versão 2 para adicionar lastCsvText
-                request.onupgradeneeded = event => {
-                    const dbInstance = event.target.result;
-                    if (!dbInstance.objectStoreNames.contains(STORE_NAME)) {
-                        dbInstance.createObjectStore(STORE_NAME);
-                    }
-                    // Se você já usou a versão anterior, pode ser necessário limpar
-                    // o Application Storage no DevTools do navegador para esta atualização de estrutura funcionar sem problemas.
-                    // Ou tratar a migração de forma mais robusta.
-                };
-                request.onsuccess = event => {
-                    db = event.target.result;
-                    resolve(db);
-                };
-                request.onerror = event => {
-                    console.error("Erro ao abrir IndexedDB:", event.target.errorCode);
-                    reject(event.target.errorCode);
-                };
-            });
-        }
-
-        function saveDataToDB(data, csvText) { // MODIFICADO: agora salva o CSV também
-            return new Promise((resolve, reject) => {
-                if (!db) {
-                    reject("DB não está aberta");
-                    return;
-                }
-                const transaction = db.transaction(STORE_NAME, 'readwrite');
-                const store = transaction.objectStore(STORE_NAME);
-                store.put(data, DATA_KEY);
-                store.put(csvText, LAST_CSV_KEY); // NOVO: Salva o texto CSV
-                
-                transaction.oncomplete = () => resolve();
-                transaction.onerror = event => {
-                    console.error("Erro ao salvar dados no DB:", event.target.errorCode);
-                    reject(event.target.errorCode);
-                };
-            });
-        }
-
-        function loadDataFromDB() {
-            return new Promise((resolve, reject) => {
-                if (!db) {
-                    reject("DB não está aberta");
-                    return;
-                }
-                const transaction = db.transaction(STORE_NAME, 'readonly');
-                const store = transaction.objectStore(STORE_NAME);
-                const getDataRequest = store.get(DATA_KEY);
-                const getCsvRequest = store.get(LAST_CSV_KEY); // NOVO
-
-                let loadedData = null;
-                let loadedCsv = null;
-
-                getDataRequest.onsuccess = event => {
-                    loadedData = event.target.result || [];
-                    if (loadedCsv !== null) resolve({ data: loadedData, csvText: loadedCsv });
-                };
-                getCsvRequest.onsuccess = event => { // NOVO
-                    loadedCsv = event.target.result || "";
-                    if (loadedData !== null) resolve({ data: loadedData, csvText: loadedCsv });
-                };
-                
-                transaction.onerror = event => { // MODIFICADO: Erro na transação geral
-                    console.error("Erro ao carregar dados do DB:", event.target.errorCode);
-                    reject(event.target.errorCode);
-                };
-            });
-        }
-        
-        function clearDB() {
-             return new Promise((resolve, reject) => {
-                if (!db) {
-                    reject("DB não está aberta");
-                    return;
-                }
-                const transaction = db.transaction(STORE_NAME, 'readwrite');
-                const store = transaction.objectStore(STORE_NAME);
-                const request = store.clear();
-                request.onsuccess = () => {
-                    console.log("IndexedDB limpo com sucesso.");
-                    lastFetchedCsvText = ""; // Limpa a variável local também
-                    resolve();
-                };
-                request.onerror = event => {
-                    console.error("Erro ao limpar IndexedDB:", event.target.errorCode);
-                    reject(event.target.errorCode);
-                };
-            });
-        }
-
-        // MODIFICADO: fetchSheetData agora retorna um objeto { data, csvText }
-        async function fetchSheetData(isAutoUpdate = false) {
-            if (!isAutoUpdate) { // Só mostra status detalhado se não for atualização automática silenciosa
-                statusDiv.textContent = "Buscando dados da planilha...";
-            }
-            
-            if (SHEET_ID === "COLOQUE_O_ID_DA_SUA_PLANILHA_AQUI" || !SHEET_ID) {
-                const errorMsg = "ERRO: O ID da Planilha (SHEET_ID) não foi configurado no código.";
-                if (!isAutoUpdate) {
-                    statusDiv.textContent = errorMsg;
-                    addBotMessage(errorMsg);
-                }
-                console.error(errorMsg);
-                return { data: [], csvText: "" };
+        class ChatBot {
+            constructor() {
+                this.init();
             }
 
-            const url = `https://docs.google.com/spreadsheets/d/${SHEET_ID}/gviz/tq?tqx=out:csv&sheet=${encodeURIComponent(SHEET_NAME)}×tamp=${new Date().getTime()}`; // Adicionado timestamp para evitar cache agressivo
+            async init() {
+                await this.openDatabase();
+                await this.loadInitialData();
+                this.setupEventListeners();
+                this.startAutoUpdate();
+            }
 
-            try {
-                const response = await fetch(url);
-                if (!response.ok) {
-                    let errorDetail = `Erro na rede: ${response.status} ${response.statusText}.`;
-                    if (response.status === 400 || response.status === 404) {
-                        errorDetail += ` Verifique se o SHEET_ID e o SHEET_NAME estão corretos e se a planilha está publicada como CSV.`;
-                    }
-                    throw new Error(errorDetail);
-                }
-                const currentCsvText = await response.text(); // NOVO: armazena o texto CSV bruto
-                
-                if (!currentCsvText || currentCsvText.trim() === "") {
-                    throw new Error("A planilha parece estar vazia ou não foi carregada corretamente.");
-                }
-
-                // NOVO: Comparação para auto-update
-                if (isAutoUpdate && currentCsvText === lastFetchedCsvText) {
-                    console.log("Auto-update: Nenhum dado novo encontrado.");
-                    autoUpdateStatusDiv.textContent = `Última verificação: ${new Date().toLocaleTimeString()}. Sem alterações.`;
-                    return { data: qaData, csvText: currentCsvText, noChanges: true }; // Retorna sinalizando que não há mudanças
-                }
-
-                const parsedData = parseCSV(currentCsvText);
-                
-                if (parsedData.length === 0 || parsedData[0].length < 2) {
-                     throw new Error("Dados da planilha mal formatados. Verifique cabeçalhos 'Pergunta' e 'Resposta'.");
-                }
-
-                const headers = parsedData[0].map(h => h.trim().toLowerCase());
-                const questionIndex = headers.indexOf("pergunta");
-                const answerIndex = headers.indexOf("resposta");
-
-                if (questionIndex === -1 || answerIndex === -1) {
-                    const errorMsg = `Erro: Cabeçalhos 'Pergunta' ou 'Resposta' não encontrados na aba '${SHEET_NAME}'.`;
-                    throw new Error(errorMsg);
-                }
-
-                const formattedData = parsedData.slice(1).map(row => {
-                    if (row.length > Math.max(questionIndex, answerIndex)) {
-                        const question = row[questionIndex] ? row[questionIndex].trim() : "";
-                        const answer = row[answerIndex] ? row[answerIndex].trim() : "";
-                        if (question && answer) {
-                             return { question, answer };
+            async openDatabase() {
+                return new Promise((resolve, reject) => {
+                    const request = indexedDB.open(CONFIG.DB_NAME, 2);
+                    
+                    request.onupgradeneeded = (event) => {
+                        const db = event.target.result;
+                        if (!db.objectStoreNames.contains(CONFIG.STORE_NAME)) {
+                            db.createObjectStore(CONFIG.STORE_NAME);
                         }
-                    }
-                    return null;
-                }).filter(item => item !== null);
-
-                if (!isAutoUpdate || currentCsvText !== lastFetchedCsvText) { // Só atualiza status se não for auto-update sem mudanças
-                    if (formattedData.length === 0) {
-                        if (!isAutoUpdate) statusDiv.textContent = "Nenhum par de pergunta/resposta válido encontrado na planilha.";
-                        if (!isAutoUpdate) addBotMessage("Não encontrei informação útil na base de conhecimento.");
-                    } else {
-                        if (!isAutoUpdate) statusDiv.textContent = `Dados carregados: ${formattedData.length} pares de Q&A.`;
-                        else autoUpdateStatusDiv.textContent = `Base atualizada: ${formattedData.length} Q&As às ${new Date().toLocaleTimeString()}`;
-                    }
-                }
-                return { data: formattedData, csvText: currentCsvText }; // Retorna os dados e o texto CSV
-
-            } catch (error) {
-                console.error("Erro ao buscar/processar dados da planilha:", error);
-                if (!isAutoUpdate) {
-                    statusDiv.textContent = `Erro ao buscar dados: ${error.message}.`;
-                    addBotMessage(`Erro ao carregar dados: ${error.message}.`);
-                } else {
-                    autoUpdateStatusDiv.textContent = `Erro na atualização automática: ${error.message} às ${new Date().toLocaleTimeString()}`;
-                }
-                return { data: qaData, csvText: lastFetchedCsvText }; // Retorna dados antigos em caso de erro no fetch
+                    };
+                    
+                    request.onsuccess = (event) => {
+                        db = event.target.result;
+                        resolve(db);
+                    };
+                    
+                    request.onerror = (event) => {
+                        console.error("Erro ao abrir IndexedDB:", event.target.error);
+                        reject(event.target.error);
+                    };
+                });
             }
-        }
 
-        function parseCSV(csvText) { // Sem alterações
-            const lines = csvText.split('\n');
-            return lines.map(line => {
-                const columns = [];
-                let currentField = '';
+            async loadInitialData() {
+                try {
+                    const { data, hash } = await this.loadFromDatabase();
+                    
+                    if (data && data.length > 0) {
+                        qaData = data;
+                        lastUpdateHash = hash;
+                        this.initSearchEngine();
+                        this.updateStatus(`Pronto com ${qaData.length} respostas`, 'success');
+                        this.addBotMessage("Olá! Como posso ajudar você hoje?");
+                    } else {
+                        await this.fetchAndUpdateData();
+                    }
+                } catch (error) {
+                    console.error("Erro ao carregar dados iniciais:", error);
+                    this.updateStatus("Erro ao carregar dados", 'error');
+                    await this.fetchAndUpdateData();
+                }
+            }
+
+            async loadFromDatabase() {
+                return new Promise((resolve, reject) => {
+                    const transaction = db.transaction(CONFIG.STORE_NAME, 'readonly');
+                    const store = transaction.objectStore(CONFIG.STORE_NAME);
+                    
+                    const getDataRequest = store.get(CONFIG.DATA_KEY);
+                    const getHashRequest = store.get(CONFIG.LAST_UPDATE_KEY);
+                    
+                    let dataResult, hashResult;
+                    
+                    getDataRequest.onsuccess = () => {
+                        dataResult = getDataRequest.result || [];
+                        if (hashResult !== undefined) resolve({ data: dataResult, hash: hashResult });
+                    };
+                    
+                    getHashRequest.onsuccess = () => {
+                        hashResult = getHashRequest.result || "";
+                        if (dataResult !== undefined) resolve({ data: dataResult, hash: hashResult });
+                    };
+                    
+                    transaction.onerror = () => {
+                        reject(transaction.error);
+                    };
+                });
+            }
+
+            async saveToDatabase(data, hash) {
+                return new Promise((resolve, reject) => {
+                    const transaction = db.transaction(CONFIG.STORE_NAME, 'readwrite');
+                    const store = transaction.objectStore(CONFIG.STORE_NAME);
+                    
+                    store.put(data, CONFIG.DATA_KEY);
+                    store.put(hash, CONFIG.LAST_UPDATE_KEY);
+                    
+                    transaction.oncomplete = () => resolve();
+                    transaction.onerror = () => reject(transaction.error);
+                });
+            }
+
+            async fetchSheetData() {
+                this.updateStatus("Atualizando dados...", 'loading');
+                
+                const url = `https://docs.google.com/spreadsheets/d/${CONFIG.SHEET_ID}/gviz/tq?tqx=out:csv&sheet=${encodeURIComponent(CONFIG.SHEET_NAME)}&t=${Date.now()}`;
+                
+                try {
+                    const response = await fetch(url);
+                    if (!response.ok) throw new Error(`Erro HTTP: ${response.status}`);
+                    
+                    const csvText = await response.text();
+                    const currentHash = this.hashString(csvText);
+                    
+                    if (currentHash === lastUpdateHash) {
+                        autoUpdateStatus.textContent = `Verificado em ${new Date().toLocaleTimeString()} - Sem alterações`;
+                        return { data: qaData, hash: lastUpdateHash, updated: false };
+                    }
+                    
+                    const parsedData = this.parseCSV(csvText);
+                    const headers = parsedData[0].map(h => h.trim().toLowerCase());
+                    const questionIndex = headers.indexOf("pergunta");
+                    const answerIndex = headers.indexOf("resposta");
+                    
+                    if (questionIndex === -1 || answerIndex === -1) {
+                        throw new Error("Cabeçalhos 'Pergunta' ou 'Resposta' não encontrados");
+                    }
+                    
+                    const formattedData = parsedData.slice(1)
+                        .map(row => ({
+                            question: row[questionIndex]?.trim() || "",
+                            answer: row[answerIndex]?.trim() || ""
+                        }))
+                        .filter(item => item.question && item.answer);
+                    
+                    return { 
+                        data: formattedData, 
+                        hash: currentHash,
+                        updated: true
+                    };
+                    
+                } catch (error) {
+                    console.error("Erro ao buscar dados:", error);
+                    this.updateStatus("Erro ao atualizar", 'error');
+                    throw error;
+                }
+            }
+
+            hashString(str) {
+                let hash = 0;
+                for (let i = 0; i < str.length; i++) {
+                    const char = str.charCodeAt(i);
+                    hash = (hash << 5) - hash + char;
+                    hash |= 0; // Converte para 32bit integer
+                }
+                return hash.toString();
+            }
+
+            parseCSV(csvText) {
+                const lines = [];
+                let currentLine = [];
+                let currentField = "";
                 let inQuotes = false;
-                for (let i = 0; i < line.length; i++) {
-                    const char = line[i];
+                
+                for (let i = 0; i < csvText.length; i++) {
+                    const char = csvText[i];
+                    
                     if (char === '"') {
-                        if (inQuotes && i + 1 < line.length && line[i+1] === '"') {
+                        if (inQuotes && csvText[i + 1] === '"') {
                             currentField += '"';
                             i++;
                         } else {
                             inQuotes = !inQuotes;
                         }
                     } else if (char === ',' && !inQuotes) {
-                        columns.push(currentField.trim());
-                        currentField = '';
+                        currentLine.push(currentField.trim());
+                        currentField = "";
+                    } else if (char === '\n' && !inQuotes) {
+                        currentLine.push(currentField.trim());
+                        lines.push(currentLine);
+                        currentLine = [];
+                        currentField = "";
                     } else {
                         currentField += char;
                     }
                 }
-                columns.push(currentField.trim());
-                return columns;
-            });
-        }
-
-        function initializeFuse(data, newCsvText, isAutoUpdate = false) { // MODIFICADO
-            const oldDataLength = qaData.length;
-            qaData = data;
-            lastFetchedCsvText = newCsvText; // Atualiza o CSV global
-
-            const options = {
-                keys: ['question'],
-                includeScore: true,
-                threshold: 0.4,     
-                ignoreLocation: true,
-                distance: 100,
-            };
-            fuse = new Fuse(data, options);
-            
-            if (!isAutoUpdate) { // Se não for auto-update, mostrar status principal
-                statusDiv.textContent = qaData.length > 0 ? `Pronto! ${qaData.length} Q&As carregados.` : "Base de conhecimento vazia ou não carregada.";
-            }
-
-            if (qaData.length > 0) {
-                // Só envia mensagem de "Olá" ou "atualizado" se for interação inicial ou mudança real
-                if (chatArea.children.length <= 1 && !isAutoUpdate) { 
-                     addBotMessage("Olá! Como posso ajudar você hoje?");
-                } else if (isAutoUpdate && qaData.length !== oldDataLength) { // Notifica se o número de itens mudou
-                     addBotMessage(`Base de conhecimento atualizada em segundo plano. Total: ${qaData.length} itens.`);
-                     autoUpdateStatusDiv.textContent = `Base atualizada: ${qaData.length} Q&As às ${new Date().toLocaleTimeString()}`;
+                
+                // Adiciona a última linha
+                if (currentField.trim() || currentLine.length > 0) {
+                    currentLine.push(currentField.trim());
+                    lines.push(currentLine);
                 }
-            } else if (!isAutoUpdate) {
-                 addBotMessage("A base de conhecimento está vazia ou não pôde ser carregada.");
+                
+                return lines;
             }
-        }
 
-        function addMessageToChat(message, sender) { /* ... sem alterações ... */ }
-        function addUserMessage(message) { /* ... sem alterações ... */ }
-        function addBotMessage(message) { /* ... sem alterações ... */ }
-        async function handleQuestion() { /* ... sem alterações ... */ }
-
-        // NOVO: Função para verificar e aplicar atualizações automaticamente
-        async function checkForUpdates() {
-            console.log("Verificando atualizações automaticamente...");
-            autoUpdateStatusDiv.textContent = `Verificando atualizações... (${new Date().toLocaleTimeString()})`;
-            try {
-                const result = await fetchSheetData(true); // true para isAutoUpdate
-
-                if (result && result.csvText && !result.noChanges) { // Se houve mudança ou é a primeira vez
-                    if (result.csvText !== lastFetchedCsvText) {
-                        console.log("Dados alterados detectados. Atualizando...");
-                        initializeFuse(result.data, result.csvText, true); // true para isAutoUpdate
-                        await saveDataToDB(result.data, result.csvText);
-                        // A mensagem de bot sobre atualização já é tratada em initializeFuse
-                    } else {
-                        console.log("Nenhuma alteração nos dados da planilha.");
-                        autoUpdateStatusDiv.textContent = `Última verificação: ${new Date().toLocaleTimeString()}. Sem alterações.`;
-                    }
-                }
-            } catch (error) {
-                console.error("Erro durante a verificação automática de atualizações:", error);
-                autoUpdateStatusDiv.textContent = `Erro na auto-atualização: ${error.message}`;
+            initSearchEngine() {
+                fuse = new Fuse(qaData, {
+                    keys: ['question'],
+                    includeScore: true,
+                    threshold: 0.4,
+                    ignoreLocation: true,
+                    minMatchCharLength: 3
+                });
             }
-        }
 
-        // NOVO: Inicia o atualizador automático
-        function startAutoUpdater() {
-            if (autoUpdateIntervalId) {
-                clearInterval(autoUpdateIntervalId);
-            }
-            if (AUTO_UPDATE_INTERVAL_MS > 0 && SHEET_ID !== "COLOQUE_O_ID_DA_SUA_PLANILHA_AQUI") {
-                autoUpdateIntervalId = setInterval(checkForUpdates, AUTO_UPDATE_INTERVAL_MS);
-                console.log(`Atualização automática configurada para cada ${AUTO_UPDATE_INTERVAL_MS / 60000} minutos.`);
-                autoUpdateStatusDiv.textContent = `Atualizações automáticas ativas. Próxima em ${AUTO_UPDATE_INTERVAL_MS / 60000} min.`;
-            } else if (SHEET_ID === "COLOQUE_O_ID_DA_SUA_PLANILHA_AQUI") {
-                autoUpdateStatusDiv.textContent = "Atualização automática desativada (SHEET_ID não configurado).";
-            }
-        }
-        
-        async function initializeApp(forceFetch = false) {
-            statusDiv.textContent = "Inicializando assistente...";
-            try {
-                await openDB();
-                let dbContents = await loadDataFromDB();
-                let data = dbContents.data;
-                lastFetchedCsvText = dbContents.csvText; // Carrega o CSV do DB
-
-                if (forceFetch || !data || data.length === 0) {
-                    if(forceFetch) {
-                        statusDiv.textContent = "Forçando atualização da base...";
-                        // Não precisa limpar DB aqui, fetchSheetData vai comparar e sobrescrever se necessário
-                    } else {
-                        statusDiv.textContent = "Nenhum dado local. Buscando da planilha...";
-                    }
-                    const fetchResult = await fetchSheetData(false); // false para não ser auto-update
-                    data = fetchResult.data;
+            async fetchAndUpdateData() {
+                try {
+                    const { data, hash, updated } = await this.fetchSheetData();
                     
-                    if (data && data.length > 0 && fetchResult.csvText !== lastFetchedCsvText) {
-                        await saveDataToDB(data, fetchResult.csvText);
-                        initializeFuse(data, fetchResult.csvText, false);
-                    } else if (data && data.length > 0) { // Dados existem, mas CSV é o mesmo
-                        initializeFuse(data, fetchResult.csvText, false);
-                    } else { // Nenhum dado novo e nenhum dado antigo
-                         initializeFuse([], "", false);
+                    if (updated) {
+                        qaData = data;
+                        lastUpdateHash = hash;
+                        await this.saveToDatabase(data, hash);
+                        this.initSearchEngine();
+                        
+                        this.updateStatus(`Atualizado com ${data.length} respostas`, 'success');
+                        autoUpdateStatus.textContent = `Atualizado em ${new Date().toLocaleTimeString()}`;
+                        
+                        if (chatArea.children.length > 0) {
+                            this.addBotMessage(`Base de conhecimento atualizada. Agora com ${data.length} respostas.`);
+                        }
                     }
-                } else {
-                    statusDiv.textContent = "Dados carregados do armazenamento local.";
-                    initializeFuse(data, lastFetchedCsvText, false);
+                    
+                    return { data, hash, updated };
+                } catch (error) {
+                    console.error("Erro ao atualizar dados:", error);
+                    this.updateStatus("Erro na atualização", 'error');
+                    throw error;
                 }
-                startAutoUpdater(); // Inicia o polling após a inicialização
-            } catch (error) {
-                console.error("Erro na inicialização:", error);
-                statusDiv.textContent = "Erro ao inicializar. Verifique o console.";
-                addBotMessage("Ocorreu um erro crítico durante a inicialização.");
-                startAutoUpdater(); // Tenta iniciar o atualizador mesmo em erro, pode se recuperar
+            }
+
+            startAutoUpdate() {
+                if (autoUpdateInterval) {
+                    clearInterval(autoUpdateInterval);
+                }
+                
+                autoUpdateInterval = setInterval(async () => {
+                    try {
+                        const { updated } = await this.fetchSheetData();
+                        
+                        if (updated) {
+                            this.showUpdateBanner();
+                            autoUpdateStatus.textContent = `Atualização disponível (${new Date().toLocaleTimeString()})`;
+                        } else {
+                            autoUpdateStatus.textContent = `Verificado em ${new Date().toLocaleTimeString()} - Sem alterações`;
+                        }
+                    } catch (error) {
+                        console.error("Erro na verificação automática:", error);
+                        autoUpdateStatus.textContent = `Erro na verificação (${new Date().toLocaleTimeString()})`;
+                    }
+                }, CONFIG.AUTO_UPDATE_INTERVAL);
+                
+                autoUpdateStatus.textContent = `Próxima verificação em ${CONFIG.AUTO_UPDATE_INTERVAL / 60000} minutos`;
+            }
+
+            showUpdateBanner() {
+                updateBanner.style.display = 'block';
+                refreshLink.onclick = (e) => {
+                    e.preventDefault();
+                    this.handleManualUpdate();
+                    updateBanner.style.display = 'none';
+                };
+            }
+
+            async handleManualUpdate() {
+                this.addBotMessage("Atualizando manualmente a base de conhecimento...");
+                try {
+                    const { data, hash, updated } = await this.fetchAndUpdateData();
+                    
+                    if (updated) {
+                        this.addBotMessage(`Base atualizada com sucesso! Agora com ${data.length} respostas.`);
+                    } else {
+                        this.addBotMessage("Nenhuma alteração encontrada na base de conhecimento.");
+                    }
+                } catch (error) {
+                    this.addBotMessage("Ocorreu um erro durante a atualização. Por favor, tente novamente.");
+                }
+            }
+
+            addMessage(text, sender) {
+                const messageDiv = document.createElement('div');
+                messageDiv.className = `message ${sender}-message`;
+                
+                const contentDiv = document.createElement('div');
+                contentDiv.textContent = text;
+                messageDiv.appendChild(contentDiv);
+                
+                const timeDiv = document.createElement('div');
+                timeDiv.className = 'message-time';
+                timeDiv.textContent = new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+                messageDiv.appendChild(timeDiv);
+                
+                chatArea.appendChild(messageDiv);
+                chatArea.scrollTop = chatArea.scrollHeight;
+            }
+
+            addUserMessage(text) {
+                this.addMessage(text, 'user');
+            }
+
+            addBotMessage(text) {
+                // Remove o indicador de digitação se existir
+                const typingIndicator = document.getElementById('typingIndicator');
+                if (typingIndicator) {
+                    chatArea.removeChild(typingIndicator);
+                }
+                
+                // Simula digitação para mensagens mais longas
+                if (text.length > 40) {
+                    const typingDiv = this.showTypingIndicator();
+                    
+                    setTimeout(() => {
+                        chatArea.removeChild(typingDiv);
+                        this.addMessage(text, 'bot');
+                    }, Math.min(text.length * 30, 2000));
+                } else {
+                    this.addMessage(text, 'bot');
+                }
+            }
+
+            showTypingIndicator() {
+                const typingDiv = document.createElement('div');
+                typingDiv.className = 'typing-indicator';
+                typingDiv.id = 'typingIndicator';
+                
+                for (let i = 0; i < 3; i++) {
+                    const dot = document.createElement('div');
+                    dot.className = 'typing-dot';
+                    typingDiv.appendChild(dot);
+                }
+                
+                chatArea.appendChild(typingDiv);
+                chatArea.scrollTop = chatArea.scrollHeight;
+                
+                return typingDiv;
+            }
+
+            updateStatus(text, status) {
+                statusText.textContent = text;
+                statusDot.className = 'status-dot';
+                
+                if (status === 'success') {
+                    statusDot.style.backgroundColor = 'var(--accent)';
+                } else if (status === 'loading') {
+                    statusDot.classList.add('loading');
+                } else if (status === 'error') {
+                    statusDot.style.backgroundColor = 'var(--error)';
+                }
+            }
+
+            async handleQuestion() {
+                const question = questionInput.value.trim();
+                if (!question) return;
+                
+                this.addUserMessage(question);
+                questionInput.value = '';
+                
+                this.showTypingIndicator();
+                
+                setTimeout(() => {
+                    if (!fuse || qaData.length === 0) {
+                        this.addBotMessage("Minha base de conhecimento não está carregada. Por favor, atualize os dados.");
+                        return;
+                    }
+                    
+                    const results = fuse.search(question, { limit: 3 });
+                    
+                    if (results.length > 0 && results[0].score < 0.4) {
+                        this.addBotMessage(results[0].item.answer);
+                    } else if (results.length > 0) {
+                        const possibleAnswers = results.slice(0, 3)
+                            .map((r, i) => `${i+1}. ${r.item.question}`)
+                            .join('\n');
+                            
+                        this.addBotMessage(`Você quis dizer uma dessas opções?\n\n${possibleAnswers}\n\nResponda com o número correspondente.`);
+                    } else {
+                        this.addBotMessage("Não encontrei uma resposta para essa pergunta. Tente reformular ou perguntar de outra forma.");
+                    }
+                }, 1000);
+            }
+
+            setupEventListeners() {
+                askButton.addEventListener('click', () => this.handleQuestion());
+                
+                questionInput.addEventListener('keypress', (e) => {
+                    if (e.key === 'Enter') this.handleQuestion();
+                });
+                
+                // Atualização manual via clique duplo no header
+                let lastClick = 0;
+                document.querySelector('header').addEventListener('click', (e) => {
+                    const now = Date.now();
+                    if (now - lastClick < 300) {
+                        this.handleManualUpdate();
+                    }
+                    lastClick = now;
+                });
             }
         }
 
-        askButton.addEventListener('click', handleQuestion);
-        questionInput.addEventListener('keypress', (event) => {
-            if (event.key === 'Enter') {
-                handleQuestion();
-            }
+        // Inicializa o chatbot quando o DOM estiver pronto
+        document.addEventListener('DOMContentLoaded', () => {
+            window.chatBot = new ChatBot();
+            questionInput.focus();
         });
-        
-        updateButton.addEventListener('click', async () => { // MODIFICADO para ser async
-            addBotMessage("Iniciando atualização manual da base de conhecimento...");
-            statusDiv.textContent = "Forçando atualização da base de conhecimento...";
-            autoUpdateStatusDiv.textContent = ""; // Limpa status de auto-update
-            if (autoUpdateIntervalId) clearInterval(autoUpdateIntervalId); // Para o timer antigo
-
-            try {
-                const fetchResult = await fetchSheetData(false); // Busca novos dados (não é auto-update)
-                if (fetchResult.csvText !== lastFetchedCsvText || qaData.length !== fetchResult.data.length) {
-                    initializeFuse(fetchResult.data, fetchResult.csvText, false); // false = não é auto-update
-                    await saveDataToDB(fetchResult.data, fetchResult.csvText);
-                    addBotMessage(`Base de conhecimento atualizada manualmente. Total: ${fetchResult.data.length} itens.`);
-                } else {
-                    addBotMessage("Nenhuma alteração encontrada na base de conhecimento.");
-                    statusDiv.textContent = `Pronto! ${qaData.length} Q&As carregados. (Sem alterações)`;
-                }
-            } catch (e) {
-                addBotMessage("Erro durante a atualização manual. Verifique o console.");
-            }
-            startAutoUpdater(); // Reinicia o timer de auto-update
-        });
-
-        initializeApp();
     </script>
 </body>
 </html>
