@@ -3,410 +3,472 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Assistente SumUp Retenção</title>
+    <title>Assistente Local com Google Sheets</title>
+    <script src="https://cdn.jsdelivr.net/npm/fuse.js/dist/fuse.min.js"></script>
     <style>
-        :root {
-            --primary-color: #000000;
-            --secondary-color: #ffffff;
-            --background-color: #f5f5f5;
-            --chat-bg: #ffffff;
-            --user-bubble: #e0e0e0;
-            --bot-bubble: #000000;
-            --bot-text: #ffffff;
-            --text-color: #000000;
-        }
-
         body {
             font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
             margin: 0;
-            padding: 0;
-            background-color: var(--background-color);
-            color: var(--text-color);
+            padding: 20px;
+            background-color: #f4f4f9;
+            color: #333;
             display: flex;
             flex-direction: column;
-            height: 100vh;
+            align-items: center;
+            min-height: 100vh;
         }
 
-        header {
-            background-color: var(--primary-color);
-            color: var(--secondary-color);
-            padding: 1rem;
-            text-align: center;
-            box-shadow: 0 2px 5px rgba(0,0,0,0.1);
-        }
-
-        #chat-container {
-            flex: 1;
-            display: flex;
-            flex-direction: column;
-            max-width: 800px;
-            margin: 1rem auto;
-            width: 90%;
-            background-color: var(--chat-bg);
+        .container {
+            background-color: #fff;
+            padding: 30px;
             border-radius: 10px;
-            box-shadow: 0 2px 10px rgba(0,0,0,0.1);
-            overflow: hidden;
+            box-shadow: 0 5px 15px rgba(0, 0, 0, 0.1);
+            width: 100%;
+            max-width: 700px;
+            box-sizing: border-box;
         }
 
-        #chat-messages {
-            flex: 1;
-            padding: 1rem;
-            overflow-y: auto;
+        h1 {
+            color: #007bff;
+            text-align: center;
+            margin-bottom: 20px;
+        }
+
+        .input-area {
             display: flex;
-            flex-direction: column;
-            gap: 0.75rem;
+            margin-bottom: 20px;
+            gap: 10px;
+        }
+
+        #questionInput {
+            flex-grow: 1;
+            padding: 12px 15px;
+            border: 1px solid #ddd;
+            border-radius: 5px;
+            font-size: 16px;
+            outline: none;
+        }
+
+        #questionInput:focus {
+            border-color: #007bff;
+            box-shadow: 0 0 0 0.2rem rgba(0, 123, 255, 0.25);
+        }
+
+        #askButton, #updateButton {
+            padding: 12px 20px;
+            background-color: #007bff;
+            color: white;
+            border: none;
+            border-radius: 5px;
+            cursor: pointer;
+            font-size: 16px;
+            transition: background-color 0.3s ease;
+        }
+
+        #askButton:hover, #updateButton:hover {
+            background-color: #0056b3;
+        }
+        
+        #updateButton {
+            background-color: #28a745;
+            margin-bottom: 20px;
+            align-self: flex-start; /* Alinha o botão à esquerda */
+        }
+        #updateButton:hover {
+            background-color: #1e7e34;
+        }
+
+        .chat-area {
+            border: 1px solid #eee;
+            border-radius: 5px;
+            padding: 15px;
+            height: 300px;
+            overflow-y: auto;
+            background-color: #f9f9f9;
+            margin-bottom: 10px;
         }
 
         .message {
+            padding: 10px;
+            margin-bottom: 10px;
+            border-radius: 8px;
             max-width: 80%;
-            padding: 0.75rem 1rem;
-            border-radius: 18px;
-            line-height: 1.4;
-            position: relative;
+            word-wrap: break-word;
         }
 
         .user-message {
-            align-self: flex-end;
-            background-color: var(--user-bubble);
-            border-bottom-right-radius: 4px;
-            color: var(--text-color);
+            background-color: #007bff;
+            color: white;
+            margin-left: auto;
+            text-align: right;
         }
 
         .bot-message {
-            align-self: flex-start;
-            background-color: var(--bot-bubble);
-            color: var(--bot-text);
-            border-bottom-left-radius: 4px;
+            background-color: #e9ecef;
+            color: #333;
+            margin-right: auto;
         }
-
-        #input-container {
-            display: flex;
-            padding: 1rem;
-            border-top: 1px solid #e0e0e0;
-            background-color: white;
-        }
-
-        #user-input {
-            flex: 1;
-            padding: 0.75rem;
-            border: 1px solid #ddd;
-            border-radius: 24px;
-            outline: none;
-            font-size: 1rem;
-        }
-
-        #user-input:focus {
-            border-color: var(--primary-color);
-        }
-
-        #send-button {
-            background-color: var(--primary-color);
-            color: var(--secondary-color);
-            border: none;
-            border-radius: 24px;
-            padding: 0 1.5rem;
-            margin-left: 0.5rem;
-            cursor: pointer;
-            font-size: 1rem;
-            transition: background-color 0.3s;
-        }
-
-        #send-button:hover {
-            background-color: #333333;
-        }
-
-        .typing-indicator {
-            display: inline-block;
-            padding: 0.75rem 1rem;
-            background-color: var(--bot-bubble);
-            color: var(--bot-text);
-            border-radius: 18px;
-            border-bottom-left-radius: 4px;
-        }
-
-        .typing-indicator span {
-            height: 8px;
-            width: 8px;
-            background-color: var(--secondary-color);
-            border-radius: 50%;
-            display: inline-block;
-            margin: 0 2px;
-            animation: bounce 1.5s infinite ease-in-out;
-        }
-
-        .typing-indicator span:nth-child(2) {
-            animation-delay: 0.2s;
-        }
-
-        .typing-indicator span:nth-child(3) {
-            animation-delay: 0.4s;
-        }
-
-        @keyframes bounce {
-            0%, 60%, 100% { transform: translateY(0); }
-            30% { transform: translateY(-5px); }
-        }
-
-        footer {
+        
+        .status-message {
+            font-style: italic;
+            color: #6c757d;
             text-align: center;
-            padding: 0.5rem;
-            font-size: 0.8rem;
-            color: #666;
+            font-size: 0.9em;
+            margin-top: 10px;
         }
 
         @media (max-width: 600px) {
-            #chat-container {
-                width: 100%;
-                margin: 0;
-                border-radius: 0;
+            .input-area {
+                flex-direction: column;
             }
-            
-            .message {
-                max-width: 90%;
+            #questionInput {
+                margin-bottom: 10px;
             }
         }
     </style>
 </head>
 <body>
-    <header>
-        <h1>Assistente SumUp Retenção</h1>
-    </header>
-
-    <div id="chat-container">
-        <div id="chat-messages"></div>
-        <div id="input-container">
-            <input type="text" id="user-input" placeholder="Digite sua pergunta..." autocomplete="off">
-            <button id="send-button">Enviar</button>
+    <div class="container">
+        <h1>Assistente Inteligente</h1>
+        <button id="updateButton">Atualizar Base de Conhecimento</button>
+        <div class="input-area">
+            <input type="text" id="questionInput" placeholder="Faça sua pergunta aqui...">
+            <button id="askButton">Perguntar</button>
         </div>
+        <div class="chat-area" id="chatArea">
+            <!-- Messages will appear here -->
+        </div>
+        <div id="status" class="status-message">Carregando dados...</div>
     </div>
 
-    <footer>
-        Assistente SumUp Retenção - Versão atualizada em 02/2024
-    </footer>
-
     <script>
-        // Configurações atualizadas para usar a versão publicada
-        const CONFIG = {
-            PUBLISHED_CSV_URL: "https://docs.google.com/spreadsheets/d/e/2PACX-1vRiEbvkgBmMbiBa4N8jw-jjb5PNxCXTpFm2_oZMKRs2AcZTRz_Uwp3YHtMCIKfNZjYqriWs8nATHgDW/pub?gid=0&single=true&output=csv",
-            CACHE_TTL: 24 * 60 * 60 * 1000, // 24 horas em milissegundos
-            SIMILARITY_THRESHOLD: 0.65, // Limiar de similaridade para considerar uma correspondência
-            MAX_HISTORY: 5 // Número máximo de interações anteriores a considerar para contexto
-        };
+        // ####################################################################################
+        // ##                                                                                ##
+        // ##  INSTRUÇÕES IMPORTANTES:                                                       ##
+        // ##  1. Encontre o ID da sua planilha do Google Sheets.                             ##
+        // ##     Abra sua planilha no Google Sheets. A URL no navegador será algo como:     ##
+        // ##     https://docs.google.com/spreadsheets/d/SEU_SHEET_ID_ESTA_AQUI/edit...    ##
+        // ##     Copie a parte que é o SEU_SHEET_ID_ESTA_AQUI.                              ##
+        // ##  2. Cole esse ID na linha abaixo, substituindo "COLOQUE_O_ID_DA_SUA_PLANILHA_AQUI".##
+        // ##                                                                                ##
+        // ####################################################################################
+        const SHEET_ID = "1pgoYg76gutqLnOlsk3mN40HfzN9n-x_6oJQcfkZEBzY";
 
-        // Elementos da interface
-        const chatMessages = document.getElementById('chat-messages');
-        const userInput = document.getElementById('user-input');
-        const sendButton = document.getElementById('send-button');
+        // ####################################################################################
+        // ##                                                                                ##
+        // ##  INSTRUÇÕES IMPORTANTES:                                                       ##
+        // ##  1. Verifique o nome EXATO da aba (planilha individual) que você publicou.      ##
+        // ##     O link de publicação que você forneceu (...gid=0...) geralmente se refere  ##
+        // ##     à primeira aba. Veja qual é o nome dela no Google Sheets.                  ##
+        // ##  2. Substitua "BaseRespostas" abaixo pelo nome EXATO da sua aba, se for        ##
+        // ##     diferente. Se sua aba se chama "Página1", coloque "Página1".                ##
+        // ##     Lembre-se que é sensível a maiúsculas/minúsculas.                          ##
+        // ##                                                                                ##
+        // ####################################################################################
+        const SHEET_NAME = "BaseRespostas"; // <--- VERIFIQUE E ALTERE SE NECESSÁRIO
 
-        // Estado da aplicação
-        let knowledgeBase = [];
-        let chatHistory = [];
+        // Constantes do banco de dados local e Fuse.js (não precisa alterar)
+        const DB_NAME = "ChatBotDB";
+        const STORE_NAME = "QAPairs";
+        const DATA_KEY = "qaData";
 
-        // Inicialização
-        document.addEventListener('DOMContentLoaded', async () => {
-            await loadKnowledgeBase();
-            addWelcomeMessage();
-            
-            // Event listeners
-            sendButton.addEventListener('click', handleUserMessage);
-            userInput.addEventListener('keypress', (e) => {
-                if (e.key === 'Enter') handleUserMessage();
-            });
-        });
+        // Elementos da página (não precisa alterar)
+        const questionInput = document.getElementById('questionInput');
+        const askButton = document.getElementById('askButton');
+        const updateButton = document.getElementById('updateButton');
+        const chatArea = document.getElementById('chatArea');
+        const statusDiv = document.getElementById('status');
 
-        // Carrega a base de conhecimento da URL publicada
-        async function loadKnowledgeBase() {
-            try {
-                // Verifica se há dados em cache
-                const cachedData = localStorage.getItem('knowledgeBase');
-                const cachedTimestamp = localStorage.getItem('knowledgeBaseTimestamp');
-                
-                if (cachedData && cachedTimestamp) {
-                    const age = Date.now() - parseInt(cachedTimestamp);
-                    if (age < CONFIG.CACHE_TTL) {
-                        knowledgeBase = JSON.parse(cachedData);
-                        console.log('Dados carregados do cache');
-                        return;
+        let db;
+        let fuse;
+        let qaData = [];
+
+        // 1. IndexedDB Setup
+        function openDB() {
+            return new Promise((resolve, reject) => {
+                const request = indexedDB.open(DB_NAME, 1);
+                request.onupgradeneeded = event => {
+                    const dbInstance = event.target.result;
+                    if (!dbInstance.objectStoreNames.contains(STORE_NAME)) {
+                        dbInstance.createObjectStore(STORE_NAME);
                     }
+                };
+                request.onsuccess = event => {
+                    db = event.target.result;
+                    resolve(db);
+                };
+                request.onerror = event => {
+                    console.error("Erro ao abrir IndexedDB:", event.target.errorCode);
+                    reject(event.target.errorCode);
+                };
+            });
+        }
+
+        function saveDataToDB(data) {
+            return new Promise((resolve, reject) => {
+                if (!db) {
+                    reject("DB não está aberta");
+                    return;
                 }
+                const transaction = db.transaction(STORE_NAME, 'readwrite');
+                const store = transaction.objectStore(STORE_NAME);
+                const request = store.put(data, DATA_KEY);
+                request.onsuccess = () => resolve();
+                request.onerror = event => {
+                    console.error("Erro ao salvar dados no DB:", event.target.errorCode);
+                    reject(event.target.errorCode);
+                };
+            });
+        }
+
+        function loadDataFromDB() {
+            return new Promise((resolve, reject) => {
+                if (!db) {
+                    reject("DB não está aberta");
+                    return;
+                }
+                const transaction = db.transaction(STORE_NAME, 'readonly');
+                const store = transaction.objectStore(STORE_NAME);
+                const request = store.get(DATA_KEY);
+                request.onsuccess = event => {
+                    resolve(event.target.result || []);
+                };
+                request.onerror = event => {
+                    console.error("Erro ao carregar dados do DB:", event.target.errorCode);
+                    reject(event.target.errorCode);
+                };
+            });
+        }
+        
+        function clearDB() {
+             return new Promise((resolve, reject) => {
+                if (!db) {
+                    reject("DB não está aberta");
+                    return;
+                }
+                const transaction = db.transaction(STORE_NAME, 'readwrite');
+                const store = transaction.objectStore(STORE_NAME);
+                const request = store.clear();
+                request.onsuccess = () => {
+                    console.log("IndexedDB limpo com sucesso.");
+                    resolve();
+                };
+                request.onerror = event => {
+                    console.error("Erro ao limpar IndexedDB:", event.target.errorCode);
+                    reject(event.target.errorCode);
+                };
+            });
+        }
+
+        // 2. Fetch data from Google Sheets
+        async function fetchSheetData() {
+            statusDiv.textContent = "Buscando dados da planilha...";
+            
+            if (SHEET_ID === "COLOQUE_O_ID_DA_SUA_PLANILHA_AQUI" || !SHEET_ID) {
+                const errorMsg = "ERRO: O ID da Planilha (SHEET_ID) não foi configurado no código. Por favor, edite o arquivo HTML e insira o ID correto.";
+                statusDiv.textContent = errorMsg;
+                addBotMessage(errorMsg);
+                console.error(errorMsg);
+                return [];
+            }
+
+            const url = `https://docs.google.com/spreadsheets/d/${SHEET_ID}/gviz/tq?tqx=out:csv&sheet=${encodeURIComponent(SHEET_NAME)}`;
+
+            try {
+                const response = await fetch(url);
+                if (!response.ok) {
+                    let errorDetail = `Erro na rede: ${response.status} ${response.statusText}.`;
+                    if (response.status === 400 || response.status === 404) { // Comum para nome de aba errado ou ID inválido
+                        errorDetail += ` Verifique se o SHEET_ID ('${SHEET_ID}') e o SHEET_NAME ('${SHEET_NAME}') estão corretos e se a planilha está publicada na web como CSV.`;
+                    }
+                    throw new Error(errorDetail);
+                }
+                const csvText = await response.text();
                 
-                // Carrega da URL publicada
-                const response = await fetch(CONFIG.PUBLISHED_CSV_URL);
-                const csvData = await response.text();
+                if (!csvText || csvText.trim() === "") {
+                    throw new Error("A planilha parece estar vazia ou não foi carregada corretamente. Verifique se ela tem conteúdo e está publicada.");
+                }
+
+                const parsedData = parseCSV(csvText);
                 
-                // Processa o CSV
-                const rows = csvData.split('\n').slice(1); // Ignora o cabeçalho
-                
-                knowledgeBase = rows.map(row => {
-                    // Divide corretamente considerando valores entre aspas
-                    const columns = row.split(/,(?=(?:(?:[^"]*"){2})*[^"]*$)/);
-                    if (columns.length >= 2) {
-                        return {
-                            question: columns[0].replace(/^"|"$/g, '').trim(),
-                            answer: columns[1].replace(/^"|"$/g, '').trim()
-                        };
+                if (parsedData.length === 0 || parsedData[0].length < 2) {
+                     throw new Error("Dados da planilha parecem vazios ou mal formatados. Verifique se a primeira linha contém os cabeçalhos 'Pergunta' e 'Resposta' (exatamente assim) e se há dados nas linhas seguintes.");
+                }
+
+                const headers = parsedData[0].map(h => h.trim().toLowerCase());
+                const questionIndex = headers.indexOf("pergunta");
+                const answerIndex = headers.indexOf("resposta");
+
+                if (questionIndex === -1 || answerIndex === -1) {
+                    const errorMsg = `Erro: Cabeçalhos 'Pergunta' ou 'Resposta' não encontrados na primeira linha da aba '${SHEET_NAME}'. Verifique sua planilha. Os cabeçalhos encontrados foram: [${headers.join(', ')}]`;
+                    console.error(errorMsg);
+                    statusDiv.textContent = errorMsg;
+                    addBotMessage("Desculpe, não consegui carregar os dados. Verifique se os cabeçalhos 'Pergunta' e 'Resposta' estão corretos na sua planilha.");
+                    return [];
+                }
+
+                const formattedData = parsedData.slice(1).map(row => {
+                    if (row.length > Math.max(questionIndex, answerIndex)) {
+                        const question = row[questionIndex] ? row[questionIndex].trim() : "";
+                        const answer = row[answerIndex] ? row[answerIndex].trim() : "";
+                        if (question && answer) {
+                             return { question, answer };
+                        }
                     }
                     return null;
-                }).filter(entry => entry && entry.question && entry.answer);
-                
-                // Atualiza o cache
-                localStorage.setItem('knowledgeBase', JSON.stringify(knowledgeBase));
-                localStorage.setItem('knowledgeBaseTimestamp', Date.now().toString());
-                console.log('Dados carregados da planilha publicada e armazenados em cache');
-            } catch (error) {
-                console.error('Erro ao carregar a base de conhecimento:', error);
-                addBotMessage("Estou atualizando meu conhecimento. Por favor, tente novamente em alguns instantes.");
-            }
-        }
+                }).filter(item => item !== null);
 
-        // Adiciona mensagem de boas-vindas
-        function addWelcomeMessage() {
-            addBotMessage("Olá! Sou o Assistente SumUp Retenção. Como posso ajudar você hoje com informações sobre retenção de clientes?");
-        }
 
-        // Manipula a mensagem do usuário
-        async function handleUserMessage() {
-            const message = userInput.value.trim();
-            if (!message) return;
-            
-            addUserMessage(message);
-            userInput.value = '';
-            
-            // Mostra indicador de digitação
-            const typingIndicator = document.createElement('div');
-            typingIndicator.className = 'message bot-message typing-indicator';
-            typingIndicator.innerHTML = '<span></span><span></span><span></span>';
-            chatMessages.appendChild(typingIndicator);
-            chatMessages.scrollTop = chatMessages.scrollHeight;
-            
-            // Processa a mensagem (com pequeno atraso para parecer mais natural)
-            setTimeout(async () => {
-                // Remove o indicador de digitação
-                chatMessages.removeChild(typingIndicator);
-                
-                // Obtém a resposta
-                const response = await getResponse(message);
-                addBotMessage(response);
-                
-                // Atualiza o histórico
-                chatHistory.push({ role: 'user', content: message });
-                chatHistory.push({ role: 'assistant', content: response });
-                
-                // Mantém apenas o histórico mais recente
-                if (chatHistory.length > CONFIG.MAX_HISTORY * 2) {
-                    chatHistory = chatHistory.slice(-CONFIG.MAX_HISTORY * 2);
-                }
-            }, 500);
-        }
-
-        // Obtém resposta para a mensagem do usuário
-        async function getResponse(message) {
-            try {
-                // Pré-processamento da mensagem
-                const processedMessage = preprocessText(message);
-                
-                // Primeiro verifica correspondência exata
-                const exactMatch = knowledgeBase.find(entry => 
-                    preprocessText(entry.question) === processedMessage
-                );
-                
-                if (exactMatch) {
-                    return personalizeResponse(exactMatch.answer, message);
-                }
-                
-                // Se não encontrou exata, verifica similaridade
-                const bestMatch = findBestMatch(processedMessage);
-                
-                if (bestMatch && bestMatch.score >= CONFIG.SIMILARITY_THRESHOLD) {
-                    return personalizeResponse(bestMatch.answer, message);
+                if (formattedData.length === 0) {
+                    statusDiv.textContent = "Nenhum par de pergunta/resposta válido encontrado na planilha. Verifique se há dados abaixo dos cabeçalhos.";
+                    addBotMessage("Não encontrei nenhuma informação útil na base de conhecimento. A planilha pode estar vazia ou os dados não estão no formato esperado.");
                 } else {
-                    return "Não encontrei informações exatas sobre isso. Você pode reformular ou perguntar sobre: abertura de conta, problemas com pagamentos, ou atualização de dados?";
+                    statusDiv.textContent = `Dados carregados: ${formattedData.length} pares de Pergunta/Resposta.`;
                 }
+                return formattedData;
+
             } catch (error) {
-                console.error('Erro ao gerar resposta:', error);
-                return "Estou com dificuldades técnicas no momento. Por favor, tente novamente mais tarde.";
+                console.error("Erro ao buscar ou processar dados da planilha:", error);
+                statusDiv.textContent = `Erro ao buscar dados: ${error.message}. Verifique o console para mais detalhes.`;
+                addBotMessage(`Desculpe, ocorreu um erro ao tentar carregar os dados: ${error.message}. Tente atualizar ou verifique as configurações.`);
+                return [];
             }
         }
 
-        // Pré-processa o texto para comparação
-        function preprocessText(text) {
-            return text
-                .toLowerCase()
-                .normalize('NFD').replace(/[\u0300-\u036f]/g, "") // Remove acentos
-                .replace(/[^\w\s]/g, '') // Remove pontuação
-                .replace(/\s+/g, ' ') // Normaliza espaços
-                .trim();
-        }
-
-        // Encontra a melhor correspondência na base de conhecimento
-        function findBestMatch(query) {
-            let bestMatch = null;
-            let highestScore = 0;
-            
-            for (const entry of knowledgeBase) {
-                const processedQuestion = preprocessText(entry.question);
-                const score = calculateSimilarity(query, processedQuestion);
-                
-                if (score > highestScore) {
-                    highestScore = score;
-                    bestMatch = { ...entry, score };
+        function parseCSV(csvText) {
+            const lines = csvText.split('\n');
+            return lines.map(line => {
+                const columns = [];
+                let currentField = '';
+                let inQuotes = false;
+                for (let i = 0; i < line.length; i++) {
+                    const char = line[i];
+                    if (char === '"') {
+                        if (inQuotes && i + 1 < line.length && line[i+1] === '"') {
+                            currentField += '"';
+                            i++;
+                        } else {
+                            inQuotes = !inQuotes;
+                        }
+                    } else if (char === ',' && !inQuotes) {
+                        columns.push(currentField.trim());
+                        currentField = '';
+                    } else {
+                        currentField += char;
+                    }
                 }
-            }
-            
-            return bestMatch;
+                columns.push(currentField.trim());
+                return columns;
+            });
         }
 
-        // Calcula similaridade entre strings (usando Jaccard similarity aprimorado)
-        function calculateSimilarity(str1, str2) {
-            const words1 = str1.split(' ');
-            const words2 = str2.split(' ');
-            
-            // Peso maior para palavras completas
-            const intersection = words1.filter(word => 
-                words2.includes(word) && word.length > 3
-            ).length;
-            
-            const union = new Set([...words1, ...words2]).size;
-            
-            return union > 0 ? intersection / union : 0;
-        }
-
-        // Personaliza a resposta com base na pergunta original
-        function personalizeResponse(answer, originalQuestion) {
-            // Verifica se a pergunta começa com pronome interrogativo
-            const interrogativePronouns = ['quem', 'o que', 'qual', 'quais', 'onde', 'quando', 'como', 'por que', 'porque'];
-            const firstWord = originalQuestion.toLowerCase().split(' ')[0];
-            
-            if (interrogativePronouns.includes(firstWord)) {
-                return `Sobre "${originalQuestion}": ${answer.charAt(0).toLowerCase() + answer.slice(1)}`;
-            } else if (originalQuestion.endsWith('?')) {
-                return `Para sua pergunta "${originalQuestion}": ${answer}`;
-            } else {
-                return answer;
+        // 3. Fuse.js Setup
+        function initializeFuse(data) {
+            qaData = data;
+            const options = {
+                keys: ['question'],
+                includeScore: true,
+                threshold: 0.4,     
+                ignoreLocation: true,
+                distance: 100,
+            };
+            fuse = new Fuse(data, options);
+            statusDiv.textContent = qaData.length > 0 ? `Pronto! ${qaData.length} Q&As carregados.` : "Base de conhecimento vazia ou não carregada. Verifique as mensagens anteriores ou tente atualizar.";
+            if (qaData.length > 0 && chatArea.children.length <= 1) { // Evita mensagem duplicada se já houver erro
+                 addBotMessage("Olá! Como posso ajudar você hoje?");
+            } else if (qaData.length === 0 && chatArea.children.length <= 1) {
+                addBotMessage("A base de conhecimento está vazia ou não pôde ser carregada. Por favor, verifique as configurações e tente atualizar.");
             }
         }
 
-        // Adiciona mensagem do usuário ao chat
+        // 4. Chat Logic
+        function addMessageToChat(message, sender) {
+            const messageDiv = document.createElement('div');
+            messageDiv.classList.add('message', sender === 'user' ? 'user-message' : 'bot-message');
+            messageDiv.textContent = message;
+            chatArea.appendChild(messageDiv);
+            chatArea.scrollTop = chatArea.scrollHeight;
+        }
+
         function addUserMessage(message) {
-            const messageElement = document.createElement('div');
-            messageElement.className = 'message user-message';
-            messageElement.textContent = message;
-            chatMessages.appendChild(messageElement);
-            chatMessages.scrollTop = chatMessages.scrollHeight;
+            addMessageToChat(message, 'user');
         }
 
-        // Adiciona mensagem do bot ao chat
         function addBotMessage(message) {
-            const messageElement = document.createElement('div');
-            messageElement.className = 'message bot-message';
-            
-            // Preserva quebras de linha das respostas
-            const formattedMessage = message.replace(/\n/g, '<br>');
-            messageElement.innerHTML = formattedMessage;
-            
-            chatMessages.appendChild(messageElement);
-            chatMessages.scrollTop = chatMessages.scrollHeight;
+            addMessageToChat(message, 'bot');
         }
+
+        async function handleQuestion() {
+            const questionText = questionInput.value.trim();
+            if (!questionText) return;
+
+            addUserMessage(questionText);
+            questionInput.value = '';
+
+            if (SHEET_ID === "COLOQUE_O_ID_DA_SUA_PLANILHA_AQUI" || !SHEET_ID) {
+                 addBotMessage("ERRO: O ID da Planilha (SHEET_ID) não foi configurado no código. Não posso buscar respostas.");
+                 return;
+            }
+
+            if (!fuse || qaData.length === 0) {
+                addBotMessage("Desculpe, a base de conhecimento não está carregada ou está vazia. Tente clicar em 'Atualizar Base de Conhecimento'.");
+                return;
+            }
+
+            const results = fuse.search(questionText);
+
+            if (results.length > 0) {
+                const bestMatch = results[0].item;
+                addBotMessage(bestMatch.answer);
+            } else {
+                addBotMessage("Desculpe, não encontrei uma resposta para essa pergunta. Tente reformular ou perguntar de outra forma.");
+            }
+        }
+
+        // 5. Initialization and Event Listeners
+        async function initializeApp(forceFetch = false) {
+            statusDiv.textContent = "Inicializando assistente...";
+            try {
+                await openDB();
+                let data = await loadDataFromDB();
+                
+                if (forceFetch || !data || data.length === 0) {
+                    if(forceFetch) {
+                        statusDiv.textContent = "Forçando atualização da base de conhecimento...";
+                        await clearDB();
+                    } else {
+                        statusDiv.textContent = "Nenhum dado local encontrado. Buscando da planilha...";
+                    }
+                    data = await fetchSheetData();
+                    if (data && data.length > 0) {
+                        await saveDataToDB(data);
+                    }
+                } else {
+                    statusDiv.textContent = "Dados carregados do armazenamento local.";
+                }
+                initializeFuse(data);
+            } catch (error) {
+                console.error("Erro na inicialização:", error);
+                statusDiv.textContent = "Erro ao inicializar. Verifique o console.";
+                addBotMessage("Ocorreu um erro crítico durante a inicialização. Por favor, tente recarregar a página ou atualizar a base de conhecimento.");
+            }
+        }
+
+        askButton.addEventListener('click', handleQuestion);
+        questionInput.addEventListener('keypress', (event) => {
+            if (event.key === 'Enter') {
+                handleQuestion();
+            }
+        });
+        
+        updateButton.addEventListener('click', () => {
+            addBotMessage("Iniciando atualização da base de conhecimento...");
+            initializeApp(true);
+        });
+
+        // Start the app
+        initializeApp();
+
     </script>
 </body>
 </html>
