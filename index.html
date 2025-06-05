@@ -641,47 +641,83 @@
     async saveUnansweredQuestion(question) {
   // 1. Configuração da requisição
   const API_URL = 'https://script.google.com/a/macros/sumup.com/s/AKfycbw-YHUWWUmKUFDOrDIS6pklj_WL0QfnqgxZcDOJXQy8Csm2XE1JhCZhNqATnB-gLoqZdQ/exec';
-  const payload = {
+  const requestPayload = {
     method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ question })
+    headers: {
+      'Content-Type': 'application/json',
+      'Origin': window.location.origin
+    },
+    body: JSON.stringify({ question }),
+    redirect: 'follow'
   };
 
-  // 2. Tentativa de envio
+  // 2. Tentativa principal
   try {
-    const response = await fetch(API_URL, payload);
+    const response = await fetch(API_URL, requestPayload);
     
-    if (!response.ok) throw new Error(`HTTP error! status: ${response.status}`);
+    if (!response.ok) {
+      throw new Error(`HTTP error! Status: ${response.status}`);
+    }
     
     const result = await response.json();
     console.log('Sucesso:', result);
     return true;
     
   } catch (error) {
-    console.error('Falha ao enviar:', error);
+    console.error('Erro principal:', error);
     
-    // 3. Fallback local robusto
+    // 3. Fallback local aprimorado
     try {
-      const localQuestions = JSON.parse(localStorage.getItem('pendingQuestions') || '[]');
-      localQuestions.push({
+      const pendingQuestions = JSON.parse(
+        localStorage.getItem('pendingQuestions') || '[]'
+      );
+      
+      pendingQuestions.push({
         question,
         timestamp: new Date().toISOString(),
-        attempts: 0
+        error: error.message
       });
-      localStorage.setItem('pendingQuestions', JSON.stringify(localQuestions));
       
-      // 4. Agenda retentativa
-      if (!this.retryInterval) {
-        this.retryInterval = setInterval(() => this.retryPendingQuestions(), 300000); // 5 minutos
+      localStorage.setItem(
+        'pendingQuestions',
+        JSON.stringify(pendingQuestions)
+      );
+      
+      // 4. Notificação visual
+      if (window.showUnansweredAlert) {
+        alert('Pergunta armazenada localmente e será enviada quando possível');
       }
       
-      return false;
     } catch (localError) {
-      console.error('Falha no fallback local:', localError);
-      return false;
+      console.error('Erro no fallback local:', localError);
     }
+    
+    return false;
   }
 }
+
+// 5. Sistema de sincronização
+function syncPendingQuestions() {
+  const pending = JSON.parse(
+    localStorage.getItem('pendingQuestions') || '[]'
+  );
+  
+  pending.forEach(async (item, index) => {
+    try {
+      const success = await saveUnansweredQuestion(item.question);
+      if (success) {
+        pending.splice(index, 1);
+      }
+    } catch (syncError) {
+      console.error('Erro na sincronização:', syncError);
+    }
+  });
+  
+  localStorage.setItem('pendingQuestions', JSON.stringify(pending));
+}
+
+// Executa a cada 5 minutos
+setInterval(syncPendingQuestions, 300000);
 
 // 5. Sistema de retentativas
 async retryPendingQuestions() {
