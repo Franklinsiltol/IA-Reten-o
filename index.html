@@ -638,40 +638,73 @@
                 }
             }
 
-           async saveUnansweredQuestion(question) {
-  // Configuração da requisição
-  const url = 'https://script.google.com/a/macros/sumup.com/s/AKfycbw-YHUWWUmKUFDOrDIS6pklj_WL0QfnqgxZcDOJXQy8Csm2XE1JhCZhNqATnB-gLoqZdQ/exec'; // Substitua pela URL real
+    async saveUnansweredQuestion(question) {
+  // 1. Configuração da requisição
+  const API_URL = 'https://script.google.com/a/macros/sumup.com/s/AKfycbw-YHUWWUmKUFDOrDIS6pklj_WL0QfnqgxZcDOJXQy8Csm2XE1JhCZhNqATnB-gLoqZdQ/exec';
   const payload = {
     method: 'POST',
-    headers: {
-      'Content-Type': 'application/json',
-      'Authorization': 'Bearer ' + gapi.auth.getToken().access_token // Opcional para auth
-    },
+    headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify({ question })
   };
 
+  // 2. Tentativa de envio
   try {
-    // 1. Tenta enviar para o Google Sheets
-    const response = await fetch(url, payload);
+    const response = await fetch(API_URL, payload);
     
-    if (!response.ok) throw new Error('Falha na rede');
+    if (!response.ok) throw new Error(`HTTP error! status: ${response.status}`);
     
     const result = await response.json();
-    console.log('✅ Pergunta salva:', result);
+    console.log('Sucesso:', result);
+    return true;
     
   } catch (error) {
-    console.error('❌ Erro ao enviar:', error);
+    console.error('Falha ao enviar:', error);
     
-    // 2. Fallback local
-    const localData = JSON.parse(localStorage.getItem('unanswered') || [];
-    localData.push({
-      question,
-      timestamp: new Date().toISOString()
-    });
-    localStorage.setItem('unanswered', JSON.stringify(localData));
-    
-    // 3. Tenta novamente mais tarde (opcional)
-    setTimeout(() => this.retryFailedQuestions(), 60000);
+    // 3. Fallback local robusto
+    try {
+      const localQuestions = JSON.parse(localStorage.getItem('pendingQuestions') || '[]');
+      localQuestions.push({
+        question,
+        timestamp: new Date().toISOString(),
+        attempts: 0
+      });
+      localStorage.setItem('pendingQuestions', JSON.stringify(localQuestions));
+      
+      // 4. Agenda retentativa
+      if (!this.retryInterval) {
+        this.retryInterval = setInterval(() => this.retryPendingQuestions(), 300000); // 5 minutos
+      }
+      
+      return false;
+    } catch (localError) {
+      console.error('Falha no fallback local:', localError);
+      return false;
+    }
+  }
+}
+
+// 5. Sistema de retentativas
+async retryPendingQuestions() {
+  const pending = JSON.parse(localStorage.getItem('pendingQuestions') || '[]');
+  
+  for (let i = pending.length - 1; i >= 0; i--) {
+    try {
+      const success = await this.saveUnansweredQuestion(pending[i].question);
+      if (success) {
+        pending.splice(i, 1);
+      } else {
+        pending[i].attempts++;
+      }
+    } catch (error) {
+      console.error(`Erro na retentativa: ${error.message}`);
+    }
+  }
+  
+  localStorage.setItem('pendingQuestions', JSON.stringify(pending));
+  
+  if (pending.length === 0 && this.retryInterval) {
+    clearInterval(this.retryInterval);
+    this.retryInterval = null;
   }
 }
 
