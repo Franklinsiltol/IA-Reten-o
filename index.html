@@ -1091,31 +1091,36 @@
     if (conversationHistory.length >= 2) {
         const lastBotMessage = conversationHistory[conversationHistory.length - 1];
         
-        // Verifica se a última mensagem do bot foi uma lista de opções
         if (lastBotMessage.role === 'assistant' && 
             lastBotMessage.content.includes("Responda com o número correspondente")) {
             
             const selectedNumber = parseInt(question);
             
-            // Se for um número válido (1, 2 ou 3)
             if (!isNaN(selectedNumber) && selectedNumber >= 1 && selectedNumber <= 3) {
-                // Extrai as opções da mensagem do bot
-                const optionLines = lastBotMessage.content.split('\n')
-                    .filter(line => line.trim().match(/^\d+\./));
+                // Extrai todas as perguntas que foram mostradas como opções
+                const optionQuestions = [];
+                const lines = lastBotMessage.content.split('\n');
                 
-                // Pega a pergunta correspondente ao número selecionado
-                const selectedOption = optionLines[selectedNumber - 1];
-                if (selectedOption) {
-                    const selectedQuestion = selectedOption.replace(/^\d+\.\s*/, '').trim();
+                for (const line of lines) {
+                    const match = line.match(/^\d+\. (.+)/);
+                    if (match) {
+                        optionQuestions.push(match[1].trim());
+                    }
+                }
+                
+                if (optionQuestions.length >= selectedNumber) {
+                    const selectedQuestionText = optionQuestions[selectedNumber - 1];
                     
-                    // Busca a resposta exata na base de dados (case insensitive)
-                    const foundAnswer = qaData.find(item => 
-                        item.question.toLowerCase() === selectedQuestion.toLowerCase()
+                    // Busca na base de dados usando a pergunta exata que foi mostrada
+                    const result = qaData.find(item => 
+                        item.question.trim() === selectedQuestionText
                     );
                     
-                    if (foundAnswer) {
-                        this.addBotMessage(foundAnswer.answer);
+                    if (result) {
+                        this.addBotMessage(result.answer);
                         return;
+                    } else {
+                        console.warn("Pergunta não encontrada na base:", selectedQuestionText);
                     }
                 }
             }
@@ -1142,17 +1147,15 @@
             
             const results = fuse.search(question, { limit: 3 });
             
-            // Se encontrou uma correspondência boa
             if (results.length > 0 && results[0].score < 0.4) {
                 this.addBotMessage(results[0].item.answer);
-            } 
-            // Se encontrou possíveis correspondências
-            else if (results.length > 0) {
-                const options = results.map((r, i) => `${i+1}. ${r.item.question}`).join('\n');
-                this.addBotMessage(`Você quis dizer uma dessas opções?\n\n${options}\n\nResponda com o número correspondente.`);
-            } 
-            // Se não encontrou nada
-            else {
+            } else if (results.length > 0) {
+                // Armazena as perguntas originais que estão sendo mostradas como opções
+                const optionsToShow = results.map(r => r.item.question);
+                const optionsText = results.map((r, i) => `${i+1}. ${r.item.question}`).join('\n');
+                
+                this.addBotMessage(`Você quis dizer uma dessas opções?\n\n${optionsText}\n\nResponda com o número correspondente.`);
+            } else {
                 this.addBotMessage("Não encontrei uma resposta para essa pergunta. Tente reformular ou perguntar de outra forma.");
             }
         }, 1000);
