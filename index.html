@@ -1079,27 +1079,72 @@
             }
 
             async handleQuestion() {
-                const question = questionInput.value.trim();
-                if (!question) return;
+    const question = questionInput.value.trim();
+    if (!question) return;
+    
+    this.addUserMessage(question);
+    questionInput.value = '';
+    
+    this.showTypingIndicator();
+    
+    // Verifica se é uma resposta numérica a uma lista de opções
+    const lastBotMessage = conversationHistory[conversationHistory.length - 1];
+    if (lastBotMessage && lastBotMessage.role === 'assistant' && 
+        lastBotMessage.content.includes("Responda com o número correspondente")) {
+        
+        const selectedNumber = parseInt(question);
+        if (!isNaN(selectedNumber) && selectedNumber >= 1 && selectedNumber <= 3) {
+            // Encontra as opções na mensagem anterior
+            const options = lastBotMessage.content.match(/\d+\. .+/g);
+            if (options && options.length >= selectedNumber) {
+                const selectedQuestion = options[selectedNumber - 1].replace(/^\d+\. /, '').trim();
                 
-                this.addUserMessage(question);
-                questionInput.value = '';
-                
-                this.showTypingIndicator();
-                
-                // Primeiro tenta com o modelo avançado se estiver carregado e ativado
-                if (modelLoaded && advancedModeEnabled) {
-                    try {
-                        const embeddingMatch = await this.findBestMatchWithEmbedding(question);
-                        
-                        if (embeddingMatch) {
-                            this.addBotMessage(embeddingMatch.item.answer);
-                            return;
-                        }
-                    } catch (error) {
-                        console.error("Erro no modelo avançado, usando fallback:", error);
-                    }
+                // Busca a resposta para a pergunta selecionada
+                const result = qaData.find(item => item.question === selectedQuestion);
+                if (result) {
+                    this.addBotMessage(result.answer);
+                    return;
                 }
+            }
+        }
+    }
+    
+    // Primeiro tenta com o modelo avançado se estiver carregado e ativado
+    if (modelLoaded && advancedModeEnabled) {
+        try {
+            const embeddingMatch = await this.findBestMatchWithEmbedding(question);
+            
+            if (embeddingMatch) {
+                this.addBotMessage(embeddingMatch.item.answer);
+                return;
+            }
+        } catch (error) {
+            console.error("Erro no modelo avançado, usando fallback:", error);
+        }
+    }
+    
+    // Fallback para Fuse.js se o modelo não estiver pronto ou não encontrar resposta
+    setTimeout(() => {
+        if (!fuse || qaData.length === 0) {
+            this.addBotMessage("Minha base de conhecimento não está carregada. Por favor, atualize os dados.");
+            return;
+        }
+        
+        const results = fuse.search(question, { limit: 3 });
+        
+        if (results.length > 0 && results[0].score < 0.4) {
+            this.addBotMessage(results[0].item.answer);
+        } else if (results.length > 0) {
+            const possibleAnswers = results.slice(0, 3)
+                .map((r, i) => `${i+1}. ${r.item.question}`)
+                .join('\n');
+                
+            this.addBotMessage(`Você quis dizer uma dessas opções?\n\n${possibleAnswers}\n\nResponda com o número correspondente.`);
+        } else {
+            this.addBotMessage("Não encontrei uma resposta para essa pergunta. Tente reformular ou perguntar de outra forma.");
+        }
+    }, 1000);
+}
                 
                 // Fallback para Fuse.js se o modelo não estiver pronto ou não encontrar resposta
                 setTimeout(() => {
