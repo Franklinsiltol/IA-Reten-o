@@ -1086,64 +1086,81 @@
     questionInput.value = '';
     
     this.showTypingIndicator();
-    
-    // Verifica se é uma resposta numérica a uma lista de opções
-    const lastBotMessage = conversationHistory[conversationHistory.length - 1];
-    if (lastBotMessage && lastBotMessage.role === 'assistant' && 
-        lastBotMessage.content.includes("Responda com o número correspondente")) {
+
+    // Verificação melhorada para respostas numéricas
+    if (conversationHistory.length >= 2) {
+        const lastBotMessage = conversationHistory[conversationHistory.length - 1];
         
-        const selectedNumber = parseInt(question);
-        if (!isNaN(selectedNumber) && selectedNumber >= 1 && selectedNumber <= 3) {
-            // Encontra as opções na mensagem anterior
-            const options = lastBotMessage.content.match(/\d+\. .+/g);
-            if (options && options.length >= selectedNumber) {
-                const selectedQuestion = options[selectedNumber - 1].replace(/^\d+\. /, '').trim();
+        // Verifica se a última mensagem do bot foi uma lista de opções
+        if (lastBotMessage.role === 'assistant' && 
+            lastBotMessage.content.includes("Responda com o número correspondente")) {
+            
+            const selectedNumber = parseInt(question);
+            
+            // Se for um número válido (1, 2 ou 3)
+            if (!isNaN(selectedNumber) && selectedNumber >= 1 && selectedNumber <= 3) {
+                // Extrai as opções da mensagem do bot
+                const optionLines = lastBotMessage.content.split('\n')
+                    .filter(line => line.trim().match(/^\d+\./));
                 
-                // Busca a resposta para a pergunta selecionada
-                const result = qaData.find(item => item.question === selectedQuestion);
-                if (result) {
-                    this.addBotMessage(result.answer);
-                    return;
+                // Pega a pergunta correspondente ao número selecionado
+                const selectedOption = optionLines[selectedNumber - 1];
+                if (selectedOption) {
+                    const selectedQuestion = selectedOption.replace(/^\d+\.\s*/, '').trim();
+                    
+                    // Busca a resposta exata na base de dados (case insensitive)
+                    const foundAnswer = qaData.find(item => 
+                        item.question.toLowerCase() === selectedQuestion.toLowerCase()
+                    );
+                    
+                    if (foundAnswer) {
+                        this.addBotMessage(foundAnswer.answer);
+                        return;
+                    }
                 }
             }
         }
     }
-    
-    // Primeiro tenta com o modelo avançado se estiver carregado e ativado
-    if (modelLoaded && advancedModeEnabled) {
-        try {
+
+    // Processamento normal para perguntas não numéricas
+    try {
+        // Primeiro tenta com o modelo avançado se estiver disponível
+        if (modelLoaded && advancedModeEnabled) {
             const embeddingMatch = await this.findBestMatchWithEmbedding(question);
-            
             if (embeddingMatch) {
                 this.addBotMessage(embeddingMatch.item.answer);
                 return;
             }
-        } catch (error) {
-            console.error("Erro no modelo avançado, usando fallback:", error);
         }
+        
+        // Fallback para busca com Fuse.js
+        setTimeout(() => {
+            if (!fuse || qaData.length === 0) {
+                this.addBotMessage("Minha base de conhecimento não está carregada. Por favor, atualize os dados.");
+                return;
+            }
+            
+            const results = fuse.search(question, { limit: 3 });
+            
+            // Se encontrou uma correspondência boa
+            if (results.length > 0 && results[0].score < 0.4) {
+                this.addBotMessage(results[0].item.answer);
+            } 
+            // Se encontrou possíveis correspondências
+            else if (results.length > 0) {
+                const options = results.map((r, i) => `${i+1}. ${r.item.question}`).join('\n');
+                this.addBotMessage(`Você quis dizer uma dessas opções?\n\n${options}\n\nResponda com o número correspondente.`);
+            } 
+            // Se não encontrou nada
+            else {
+                this.addBotMessage("Não encontrei uma resposta para essa pergunta. Tente reformular ou perguntar de outra forma.");
+            }
+        }, 1000);
+        
+    } catch (error) {
+        console.error("Erro ao processar pergunta:", error);
+        this.addBotMessage("Ocorreu um erro ao processar sua pergunta. Por favor, tente novamente.");
     }
-    
-    // Fallback para Fuse.js se o modelo não estiver pronto ou não encontrar resposta
-    setTimeout(() => {
-        if (!fuse || qaData.length === 0) {
-            this.addBotMessage("Minha base de conhecimento não está carregada. Por favor, atualize os dados.");
-            return;
-        }
-        
-        const results = fuse.search(question, { limit: 3 });
-        
-        if (results.length > 0 && results[0].score < 0.4) {
-            this.addBotMessage(results[0].item.answer);
-        } else if (results.length > 0) {
-            const possibleAnswers = results.slice(0, 3)
-                .map((r, i) => `${i+1}. ${r.item.question}`)
-                .join('\n');
-                
-            this.addBotMessage(`Você quis dizer uma dessas opções?\n\n${possibleAnswers}\n\nResponda com o número correspondente.`);
-        } else {
-            this.addBotMessage("Não encontrei uma resposta para essa pergunta. Tente reformular ou perguntar de outra forma.");
-        }
-    }, 1000);
 }
             setupEventListeners() {
                 askButton.addEventListener('click', () => this.handleQuestion());
