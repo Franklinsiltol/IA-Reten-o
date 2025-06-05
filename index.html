@@ -1239,14 +1239,7 @@ normalizeText(text) {
         .replace(/\s{2,}/g, ' ') // Espaços múltiplos -> único
         .trim();
 },
-            setupEventListeners() {
-                askButton.addEventListener('click', () => this.handleQuestion());
-                
-                questionInput.addEventListener('keypress', (e) => {
-                    if (e.key === 'Enter') this.handleQuestion();
-                });
-                
-                // Atualização manual via clique duplo no header
+            // Atualização manual via clique duplo no header
                 let lastClick = 0;
                 document.querySelector('header').addEventListener('click', (e) => {
                     const now = Date.now();
