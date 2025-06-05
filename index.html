@@ -1145,30 +1145,6 @@
         }
     }, 1000);
 }
-                
-                // Fallback para Fuse.js se o modelo não estiver pronto ou não encontrar resposta
-                setTimeout(() => {
-                    if (!fuse || qaData.length === 0) {
-                        this.addBotMessage("Minha base de conhecimento não está carregada. Por favor, atualize os dados.");
-                        return;
-                    }
-                    
-                    const results = fuse.search(question, { limit: 3 });
-                    
-                    if (results.length > 0 && results[0].score < 0.4) {
-                        this.addBotMessage(results[0].item.answer);
-                    } else if (results.length > 0) {
-                        const possibleAnswers = results.slice(0, 3)
-                            .map((r, i) => `${i+1}. ${r.item.question}`)
-                            .join('\n');
-                            
-                        this.addBotMessage(`Você quis dizer uma dessas opções?\n\n${possibleAnswers}\n\nResponda com o número correspondente.`);
-                    } else {
-                        this.addBotMessage("Não encontrei uma resposta para essa pergunta. Tente reformular ou perguntar de outra forma.");
-                    }
-                }, 1000);
-            }
-
             setupEventListeners() {
                 askButton.addEventListener('click', () => this.handleQuestion());
                 
