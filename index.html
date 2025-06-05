@@ -329,6 +329,61 @@
             justify-content: space-between;
         }
 
+        .settings-toggle {
+            display: flex;
+            align-items: center;
+            gap: 0.5rem;
+            font-size: 0.85rem;
+            margin-left: auto;
+            margin-right: 1rem;
+            cursor: pointer;
+        }
+
+        .toggle-switch {
+            position: relative;
+            display: inline-block;
+            width: 40px;
+            height: 20px;
+        }
+
+        .toggle-switch input {
+            opacity: 0;
+            width: 0;
+            height: 0;
+        }
+
+        .toggle-slider {
+            position: absolute;
+            cursor: pointer;
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            background-color: var(--light-gray);
+            transition: .4s;
+            border-radius: 20px;
+        }
+
+        .toggle-slider:before {
+            position: absolute;
+            content: "";
+            height: 16px;
+            width: 16px;
+            left: 2px;
+            bottom: 2px;
+            background-color: white;
+            transition: .4s;
+            border-radius: 50%;
+        }
+
+        input:checked + .toggle-slider {
+            background-color: var(--accent);
+        }
+
+        input:checked + .toggle-slider:before {
+            transform: translateX(20px);
+        }
+
         @media (max-width: 768px) {
             .app-container {
                 height: 100vh;
@@ -359,6 +414,13 @@
             <div class="logo">
                 <div class="logo-icon">N</div>
                 <div class="logo-text">NeuroAssist</div>
+            </div>
+            <div class="settings-toggle">
+                <label class="toggle-switch">
+                    <input type="checkbox" id="advancedModeToggle" checked>
+                    <span class="toggle-slider"></span>
+                </label>
+                <span>Modo Avançado</span>
             </div>
             <div class="status-indicator">
                 <div class="status-dot loading"></div>
@@ -397,7 +459,8 @@
         // Configurações
         const CONFIG = {
             SHEET_ID: "1pgoYg76gutqLnOlsk3mN40HfzN9n-x_6oJQcfkZEBzY",
-            SHEET_NAME: "BaseRespostas",
+            SHEET_NAME: "Retenção",
+            NEW_QUESTIONS_SHEET: "Novas perguntas",
             AUTO_UPDATE_INTERVAL: 600000, // 10 minutos em milissegundos
             DB_NAME: "NeuroAssistDB",
             STORE_NAME: "KnowledgeBase",
@@ -420,6 +483,7 @@
         const modelStatusText = document.getElementById('modelStatusText');
         const modelProgressText = document.getElementById('modelProgressText');
         const modelProgressBar = document.getElementById('modelProgressBar');
+        const advancedModeToggle = document.getElementById('advancedModeToggle');
 
         // Variáveis globais
         let db;
@@ -431,6 +495,7 @@
         let modelLoaded = false;
         let modelLoading = false;
         let conversationHistory = [];
+        let advancedModeEnabled = true;
 
         class ChatBot {
             constructor() {
@@ -570,6 +635,32 @@
                     console.error("Erro ao buscar dados:", error);
                     this.updateStatus("Erro ao atualizar", 'error');
                     throw error;
+                }
+            }
+
+            async saveUnansweredQuestion(question) {
+                try {
+                    // Formata a pergunta para CSV
+                    const csvRow = `"${question.replace(/"/g, '""')}"\n`;
+                    
+                    // Usa a API do Google Sheets para adicionar a pergunta
+                    const scriptUrl = `https://script.google.com/macros/s/AKfycbw9aF5ET6WQZxR9QK1ZQZQZQZQZQZQZQZQZQZQZQZQZQZQZQZQZQZQZQZQZQZQZQZQZQZQZQZQ/exec`;
+                    
+                    const response = await fetch(scriptUrl, {
+                        method: 'POST',
+                        headers: {
+                            'Content-Type': 'application/x-www-form-urlencoded',
+                        },
+                        body: `sheet=${encodeURIComponent(CONFIG.NEW_QUESTIONS_SHEET)}&data=${encodeURIComponent(csvRow)}`
+                    });
+                    
+                    if (!response.ok) {
+                        throw new Error('Erro ao salvar pergunta não respondida');
+                    }
+                    
+                    console.log('Pergunta salva na aba "Novas perguntas"');
+                } catch (error) {
+                    console.error('Erro ao salvar pergunta não respondida:', error);
                 }
             }
 
@@ -785,7 +876,7 @@
             }
 
             async startModelLoading() {
-                if (modelLoading || modelLoaded) return;
+                if (modelLoading || modelLoaded || !advancedModeEnabled) return;
                 
                 modelLoading = true;
                 modelLoadingProgress.style.display = 'flex';
@@ -884,8 +975,8 @@
             }
 
             async findBestMatchWithEmbedding(question) {
-                if (!modelLoaded || !useModel) {
-                    return null; // Retorna null se o modelo não estiver pronto
+                if (!modelLoaded || !useModel || !advancedModeEnabled) {
+                    return null; // Retorna null se o modelo não estiver pronto ou modo avançado desativado
                 }
                 
                 try {
@@ -940,8 +1031,8 @@
                 
                 this.showTypingIndicator();
                 
-                // Primeiro tenta com o modelo avançado se estiver carregado
-                if (modelLoaded) {
+                // Primeiro tenta com o modelo avançado se estiver carregado e ativado
+                if (modelLoaded && advancedModeEnabled) {
                     try {
                         const embeddingMatch = await this.findBestMatchWithEmbedding(question);
                         
@@ -973,6 +1064,8 @@
                         this.addBotMessage(`Você quis dizer uma dessas opções?\n\n${possibleAnswers}\n\nResponda com o número correspondente.`);
                     } else {
                         this.addBotMessage("Não encontrei uma resposta para essa pergunta. Tente reformular ou perguntar de outra forma.");
+                        // Salva a pergunta não respondida na aba "Novas perguntas"
+                        this.saveUnansweredQuestion(question);
                     }
                 }, 1000);
             }
@@ -992,6 +1085,16 @@
                         this.handleManualUpdate();
                     }
                     lastClick = now;
+                });
+                
+                // Toggle do modo avançado
+                advancedModeToggle.addEventListener('change', (e) => {
+                    advancedModeEnabled = e.target.checked;
+                    if (advancedModeEnabled && !modelLoaded && !modelLoading) {
+                        this.startModelLoading();
+                    }
+                    
+                    this.addBotMessage(`Modo avançado ${advancedModeEnabled ? 'ativado' : 'desativado'}.`);
                 });
             }
         }
