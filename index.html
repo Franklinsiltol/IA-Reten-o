@@ -5,7 +5,8 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>NeuroAssist - Assistente Inteligente</title>
     <script src="https://cdn.jsdelivr.net/npm/fuse.js@6.6.2"></script>
-    <script src="https://cdn.jsdelivr.net/npm/@xenova/transformers@2.6.0"></script>
+    <script src="https://cdn.jsdelivr.net/npm/@tensorflow/tfjs@3.18.0"></script>
+    <script src="https://cdn.jsdelivr.net/npm/@tensorflow-models/universal-sentence-encoder@1.3.3"></script>
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
     <style>
         :root {
@@ -402,9 +403,8 @@
             STORE_NAME: "KnowledgeBase",
             DATA_KEY: "qaData",
             LAST_UPDATE_KEY: "lastUpdate",
-            MODEL_KEY: "miniLMv6",
-            MODEL_NAME: "Xenova/all-MiniLM-L6-v2",
-            MODEL_REVISION: "f8b5c6b0a0b5e5e5e5e5e5e5e5e5e5e5e5e5e5e5"
+            MODEL_KEY: "useModel",
+            SIMILARITY_THRESHOLD: 0.75 // Limiar de similaridade para considerar uma correspondência
         };
 
         // Elementos da interface
@@ -427,7 +427,7 @@
         let qaData = [];
         let lastUpdateHash = "";
         let autoUpdateInterval;
-        let pipeline = null;
+        let useModel = null;
         let modelLoaded = false;
         let modelLoading = false;
         let conversationHistory = [];
@@ -792,21 +792,9 @@
                 modelStatusText.textContent = "Carregando modelo avançado...";
                 
                 try {
-                    // Configura o progresso do download
-                    const callback = (progress) => {
-                        const percent = Math.round(progress * 100);
-                        modelProgressText.textContent = `${percent}%`;
-                        modelProgressBar.style.width = `${percent}%`;
-                    };
+                    // Carrega o modelo Universal Sentence Encoder
+                    useModel = await this.loadUSEWithProgress();
                     
-                    // Carrega o modelo MiniLM v6
-                    const { pipeline: loadedPipeline } = await this.loadModelWithProgress(
-                        'feature-extraction', 
-                        CONFIG.MODEL_NAME, 
-                        { revision: CONFIG.MODEL_REVISION, progress_callback: callback }
-                    );
-                    
-                    pipeline = loadedPipeline;
                     modelLoaded = true;
                     
                     // Atualiza a interface
@@ -836,37 +824,28 @@
                 }
             }
 
-            async loadModelWithProgress(task, model, options) {
+            async loadUSEWithProgress() {
                 return new Promise((resolve, reject) => {
                     // Configura o callback de progresso
-                    const progressCallback = options.progress_callback;
-                    let lastProgress = 0;
+                    let progress = 0;
+                    const progressInterval = setInterval(() => {
+                        progress = Math.min(progress + 0.05, 0.95); // Não chega a 100% até o carregamento completo
+                        modelProgressText.textContent = `${Math.round(progress * 100)}%`;
+                        modelProgressBar.style.width = `${Math.round(progress * 100)}%`;
+                    }, 500);
                     
-                    // Substitui o callback de progresso para atualizar a UI
-                    options.progress_callback = (progress) => {
-                        if (progressCallback) progressCallback(progress);
-                        lastProgress = progress;
-                    };
-                    
-                    // Carrega o pipeline
-                    transformers.pipeline(task, model, options)
-                        .then(pipeline => {
-                            // Garante que a barra de progresso chegue a 100%
-                            if (lastProgress < 1) {
-                                const interval = setInterval(() => {
-                                    lastProgress = Math.min(lastProgress + 0.05, 1);
-                                    progressCallback(lastProgress);
-                                    
-                                    if (lastProgress >= 1) {
-                                        clearInterval(interval);
-                                        resolve({ pipeline });
-                                    }
-                                }, 100);
-                            } else {
-                                resolve({ pipeline });
-                            }
+                    // Carrega o modelo
+                    use.load()
+                        .then(model => {
+                            clearInterval(progressInterval);
+                            modelProgressText.textContent = "100%";
+                            modelProgressBar.style.width = "100%";
+                            resolve(model);
                         })
-                        .catch(reject);
+                        .catch(error => {
+                            clearInterval(progressInterval);
+                            reject(error);
+                        });
                 });
             }
 
@@ -895,16 +874,17 @@
             }
 
             async getEmbedding(text) {
-                if (!pipeline) {
+                if (!useModel) {
                     throw new Error("Modelo não carregado");
                 }
                 
-                const result = await pipeline(text, { pooling: 'mean', normalize: true });
-                return Array.from(result.data);
+                // O Universal Sentence Encoder já retorna embeddings normalizados
+                const embeddings = await useModel.embed(text);
+                return embeddings.arraySync()[0]; // Converte para array regular
             }
 
             async findBestMatchWithEmbedding(question) {
-                if (!modelLoaded || !pipeline) {
+                if (!modelLoaded || !useModel) {
                     return null; // Retorna null se o modelo não estiver pronto
                 }
                 
@@ -926,8 +906,8 @@
                         }
                     }
                     
-                    // Retorna apenas se a similaridade for acima de um limiar
-                    return bestScore > 0.7 ? { item: bestMatch, score: 1 - bestScore } : null;
+                    // Retorna apenas se a similaridade for acima do limiar
+                    return bestScore > CONFIG.SIMILARITY_THRESHOLD ? { item: bestMatch, score: 1 - bestScore } : null;
                     
                 } catch (error) {
                     console.error("Erro ao usar embeddings:", error);
@@ -1018,17 +998,7 @@
 
         // Inicializa o chatbot quando o DOM estiver pronto
         document.addEventListener('DOMContentLoaded', () => {
-            // Configura o transformers.js para usar cache
-            if (!window.transformers) {
-                window.transformers = {
-                    env: {
-                        remoteHost: 'https://cdn.jsdelivr.net/npm/@xenova/transformers@2.6.0/dist/',
-                        allowLocalModels: false,
-                        useFS: false
-                    }
-                };
-            }
-            
+            // Carrega TensorFlow.js e o Universal Sentence Encoder
             window.chatBot = new ChatBot();
             questionInput.focus();
         });
