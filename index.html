@@ -1142,104 +1142,56 @@
             }
 
             async handleQuestion() {
-    const question = questionInput.value.trim();
-    if (!question) return;
-    
-    this.addUserMessage(question);
-    questionInput.value = '';
-    
-    this.showTypingIndicator();
+                const question = questionInput.value.trim();
+                if (!question) return;
+                
+                this.addUserMessage(question);
+                questionInput.value = '';
+                
+                this.showTypingIndicator();
 
-    try {
-        // 1. Primeiro tentativa: Modelo semântico (se disponível)
-        if (modelLoaded && advancedModeEnabled) {
-            try {
-                const embeddingMatch = await this.findBestMatchWithEmbedding(question);
-                if (embeddingMatch) {
-                    this.addBotMessage(embeddingMatch.item.answer);
-                    return;
-                }
-            } catch (error) {
-                console.error("Erro no modelo semântico:", error);
-                // Continua para o fallback textual
-            }
-        }
-
-        // 2. Fallback: Busca textual inteligente
-        setTimeout(() => {
-            if (!fuse || qaData.length === 0) {
-                this.addBotMessage("Minha base de conhecimento não está carregada. Por favor, atualize os dados.");
-                return;
-            }
-
-            // Pré-processamento avançado da pergunta
-            const processedQuestion = this.normalizeText(question);
-            console.log("Processed question:", processedQuestion); // Debug opcional
-
-            // Busca com parâmetros otimizados
-            const results = fuse.search(processedQuestion, {
-                limit: 3,
-                threshold: 0.35, // Mais sensível que o padrão (0.6)
-                distance: 50, // Permite mais variações
-                ignoreLocation: true,
-                minMatchCharLength: 3,
-                includeScore: true
-            });
-
-            // Debug: Mostra os resultados da busca
-            console.log("Search results:", results.map(r => ({
-                question: r.item.question,
-                score: r.score
-            })));
-
-            // Se encontrou uma correspondência muito boa (score baixo = melhor match)
-            if (results.length > 0 && results[0].score < 0.3) {
-                this.addBotMessage(results[0].item.answer);
-            }
-            // Se encontrou correspondências razoáveis
-            else if (results.length > 0) {
-                // Verifica se há uma pergunta muito similar na base
-                const exactMatch = qaData.find(item => 
-                    this.normalizeText(item.question) === processedQuestion ||
-                    item.question.toLowerCase().includes(processedQuestion) ||
-                    processedQuestion.includes(this.normalizeText(item.question))
-                );
-
-                if (exactMatch) {
-                    this.addBotMessage(exactMatch.answer);
-                } else {
-                    this.showOptionsButtons(results);
+                try {
+                    // Primeiro tenta com o modelo avançado se estiver disponível
+                    if (modelLoaded && advancedModeEnabled) {
+                        const embeddingMatch = await this.findBestMatchWithEmbedding(question);
+                        if (embeddingMatch) {
+                            this.addBotMessage(embeddingMatch.item.answer);
+                            return;
+                        }
+                    }
+                    
+                    // Fallback para busca com Fuse.js
+                    setTimeout(() => {
+                        if (!fuse || qaData.length === 0) {
+                            this.addBotMessage("Minha base de conhecimento não está carregada. Por favor, atualize os dados.");
+                            return;
+                        }
+                        
+                        const results = fuse.search(question, { limit: 3 });
+                        
+                        if (results.length > 0 && results[0].score < 0.4) {
+                            this.addBotMessage(results[0].item.answer);
+                        } else if (results.length > 0) {
+                            this.showOptionsButtons(results);
+                        } else {
+                            this.addBotMessage("Não encontrei uma resposta para essa pergunta. Tente reformular ou perguntar de outra forma.");
+                        }
+                    }, 1000);
+                    
+                } catch (error) {
+                    console.error("Erro ao processar pergunta:", error);
+                    this.addBotMessage("Ocorreu um erro ao processar sua pergunta. Por favor, tente novamente.");
                 }
             }
-            // Se não encontrou nada
-            else {
-                this.addBotMessage("Não encontrei uma resposta exata. Você quis dizer alguma destas opções?");
-                // Mostra sugestões mesmo sem match forte
-                const fallbackResults = fuse.search(question, { limit: 3 });
-                if (fallbackResults.length > 0) {
-                    this.showOptionsButtons(fallbackResults);
-                }
-            }
-        }, 1000);
 
-    } catch (error) {
-        console.error("Erro geral no handleQuestion:", error);
-        this.addBotMessage("Ocorreu um erro inesperado. Por favor, tente novamente.");
-    }
-},
-
-// Método auxiliar para normalização de texto
-normalizeText(text) {
-    if (!text) return '';
-    return text
-        .toLowerCase()
-        .normalize('NFD').replace(/[\u0300-\u036f]/g, "") // Remove acentos
-        .replace(/[.,\/#!$%\^&\*;:{}=\-_`~()?]/g, "") // Remove pontuação
-        .replace(/\b(como|qual|quando|onde|por que|o que|a|o|de|da|do)\b/g, "") // Remove stopwords
-        .replace(/\s{2,}/g, ' ') // Espaços múltiplos -> único
-        .trim();
-},
-            // Atualização manual via clique duplo no header
+            setupEventListeners() {
+                askButton.addEventListener('click', () => this.handleQuestion());
+                
+                questionInput.addEventListener('keypress', (e) => {
+                    if (e.key === 'Enter') this.handleQuestion();
+                });
+                
+                // Atualização manual via clique duplo no header
                 let lastClick = 0;
                 document.querySelector('header').addEventListener('click', (e) => {
                     const now = Date.now();
