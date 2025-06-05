@@ -638,31 +638,25 @@
                 }
             }
 
-            async saveUnansweredQuestion(question) {
-                try {
-                    // Formata a pergunta para CSV
-                    const csvRow = `"${question.replace(/"/g, '""')}"\n`;
-                    
-                    // Usa a API do Google Sheets para adicionar a pergunta
-                    const scriptUrl = `https://script.google.com/macros/s/AKfycbw9aF5ET6WQZxR9QK1ZQZQZQZQZQZQZQZQZQZQZQZQZQZQZQZQZQZQZQZQZQZQZQZQZQZQZQZQ/exec`;
-                    
-                    const response = await fetch(scriptUrl, {
-                        method: 'POST',
-                        headers: {
-                            'Content-Type': 'application/x-www-form-urlencoded',
-                        },
-                        body: `sheet=${encodeURIComponent(CONFIG.NEW_QUESTIONS_SHEET)}&data=${encodeURIComponent(csvRow)}`
-                    });
-                    
-                    if (!response.ok) {
-                        throw new Error('Erro ao salvar pergunta não respondida');
-                    }
-                    
-                    console.log('Pergunta salva na aba "Novas perguntas"');
-                } catch (error) {
-                    console.error('Erro ao salvar pergunta não respondida:', error);
-                }
-            }
+           async saveUnansweredQuestion(question) {
+  try {
+    // Substitua "https://script.google.com/a/macros/sumup.com/s/AKfycbw-YHUWWUmKUFDOrDIS6pklj_WL0QfnqgxZcDOJXQy8Csm2XE1JhCZhNqATnB-gLoqZdQ/exec" pela URL do WebApp que você publicou
+    const response = await fetch('SUA_URL_DO_SCRIPT', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ question })
+    });
+    
+    if (!response.ok) throw new Error('Falha ao salvar');
+    console.log('Pergunta salva na aba "Novas perguntas"');
+  } catch (error) {
+    console.error('Erro ao salvar:', error);
+    // Fallback: armazena localmente (no navegador) para tentar depois
+    const unanswered = JSON.parse(localStorage.getItem('unanswered_questions') || '[]';
+    unanswered.push(question);
+    localStorage.setItem('unanswered_questions', JSON.stringify(unanswered));
+  }
+}
 
             hashString(str) {
                 let hash = 0;
