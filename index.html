@@ -234,6 +234,15 @@
             transform: translateY(0);
         }
 
+        #suggestButton {
+            background-color: var(--light-gray);
+            color: var(--white);
+        }
+
+        #suggestButton:hover {
+            background-color: var(--medium-gray);
+        }
+
         #updateButton {
             background-color: var(--accent);
             color: var(--white);
@@ -384,6 +393,47 @@
             transform: translateX(20px);
         }
 
+        /* Modal styles */
+        .modal {
+            display: none;
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background-color: rgba(0, 0, 0, 0.7);
+            z-index: 1000;
+            justify-content: center;
+            align-items: center;
+        }
+
+        .modal-content {
+            background-color: var(--dark-gray);
+            border-radius: 8px;
+            width: 90%;
+            max-width: 600px;
+            max-height: 90vh;
+            overflow: auto;
+            padding: 20px;
+            position: relative;
+        }
+
+        .close-modal {
+            position: absolute;
+            top: 10px;
+            right: 10px;
+            font-size: 24px;
+            cursor: pointer;
+            color: var(--white);
+        }
+
+        .modal-iframe {
+            width: 100%;
+            height: 500px;
+            border: none;
+            border-radius: 4px;
+        }
+
         @media (max-width: 768px) {
             .app-container {
                 height: 100vh;
@@ -417,7 +467,7 @@
             </div>
             <div class="settings-toggle">
                 <label class="toggle-switch">
-                    <input type="checkbox" id="advancedModeToggle" checked>
+                    <input type="checkbox" id="advancedModeToggle">
                     <span class="toggle-slider"></span>
                 </label>
                 <span>Modo Avançado</span>
@@ -435,6 +485,13 @@
 
             <div class="input-area">
                 <input type="text" id="questionInput" placeholder="Digite sua mensagem..." autocomplete="off">
+                <button id="suggestButton" class="button" title="Sugerir perguntas e respostas">
+                    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+                        <path d="M12 22C17.5228 22 22 17.5228 22 12C22 6.47715 17.5228 2 12 2C6.47715 2 2 6.47715 2 12C2 17.5228 6.47715 22 12 22Z" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+                        <path d="M12 16V12" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+                        <path d="M12 8H12.01" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+                    </svg>
+                </button>
                 <button id="askButton" class="button">
                     <svg width="20" height="20" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
                         <path d="M22 2L11 13" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
@@ -455,12 +512,19 @@
         </div>
     </div>
 
+    <!-- Modal para sugestões -->
+    <div id="suggestionModal" class="modal">
+        <div class="modal-content">
+            <span class="close-modal">&times;</span>
+            <iframe class="modal-iframe" id="suggestionForm" src="https://docs.google.com/forms/d/e/1FAIpQLSdK1OUPcBGtMRdWQz4JhyeQBuet-wXbEQ4CyAX07f6rHSvdyA/viewform?embedded=true" frameborder="0" marginheight="0" marginwidth="0">Carregando…</iframe>
+        </div>
+    </div>
+
     <script>
         // Configurações
         const CONFIG = {
             SHEET_ID: "1pgoYg76gutqLnOlsk3mN40HfzN9n-x_6oJQcfkZEBzY",
             SHEET_NAME: "Retenção",
-            NEW_QUESTIONS_SHEET: "Novas perguntas",
             AUTO_UPDATE_INTERVAL: 600000, // 10 minutos em milissegundos
             DB_NAME: "NeuroAssistDB",
             STORE_NAME: "KnowledgeBase",
@@ -473,6 +537,7 @@
         // Elementos da interface
         const questionInput = document.getElementById('questionInput');
         const askButton = document.getElementById('askButton');
+        const suggestButton = document.getElementById('suggestButton');
         const chatArea = document.getElementById('chatArea');
         const statusText = document.getElementById('statusText');
         const statusDot = document.querySelector('.status-dot');
@@ -484,6 +549,8 @@
         const modelProgressText = document.getElementById('modelProgressText');
         const modelProgressBar = document.getElementById('modelProgressBar');
         const advancedModeToggle = document.getElementById('advancedModeToggle');
+        const suggestionModal = document.getElementById('suggestionModal');
+        const closeModal = document.querySelector('.close-modal');
 
         // Variáveis globais
         let db;
@@ -495,7 +562,7 @@
         let modelLoaded = false;
         let modelLoading = false;
         let conversationHistory = [];
-        let advancedModeEnabled = true;
+        let advancedModeEnabled = false; // Modo avançado desativado por padrão
 
         class ChatBot {
             constructor() {
@@ -507,7 +574,22 @@
                 await this.loadInitialData();
                 this.setupEventListeners();
                 this.startAutoUpdate();
-                this.startModelLoading(); // Inicia o carregamento do modelo em segundo plano
+                
+                // Verifica se o modo avançado estava ativado anteriormente
+                this.checkAdvancedModeStatus();
+            }
+
+            async checkAdvancedModeStatus() {
+                try {
+                    const savedStatus = await this.getModelStatus();
+                    if (savedStatus) {
+                        advancedModeEnabled = true;
+                        advancedModeToggle.checked = true;
+                        this.startModelLoading();
+                    }
+                } catch (error) {
+                    console.error("Erro ao verificar status do modo avançado:", error);
+                }
             }
 
             async openDatabase() {
@@ -638,127 +720,6 @@
                 }
             }
 
-    async saveUnansweredQuestion(question) {
-  // 1. Configuração da requisição
-  const API_URL = 'https://script.google.com/a/macros/sumup.com/s/AKfycbw-YHUWWUmKUFDOrDIS6pklj_WL0QfnqgxZcDOJXQy8Csm2XE1JhCZhNqATnB-gLoqZdQ/exec';
-  const requestPayload = {
-    method: 'POST',
-    headers: {
-      'Content-Type': 'application/json',
-      'Origin': window.location.origin
-    },
-    body: JSON.stringify({ question }),
-    redirect: 'follow'
-  };
-
-  // 2. Tentativa principal
-  try {
-    const response = await fetch(API_URL, requestPayload);
-    
-    if (!response.ok) {
-      throw new Error(`HTTP error! Status: ${response.status}`);
-    }
-    
-    const result = await response.json();
-    console.log('Sucesso:', result);
-    return true;
-    
-  } catch (error) {
-    console.error('Erro principal:', error);
-    
-    // 3. Fallback local aprimorado
-    try {
-      const pendingQuestions = JSON.parse(
-        localStorage.getItem('pendingQuestions') || '[]'
-      );
-      
-      pendingQuestions.push({
-        question,
-        timestamp: new Date().toISOString(),
-        error: error.message
-      });
-      
-      localStorage.setItem(
-        'pendingQuestions',
-        JSON.stringify(pendingQuestions)
-      );
-      
-      // 4. Notificação visual
-      if (window.showUnansweredAlert) {
-        alert('Pergunta armazenada localmente e será enviada quando possível');
-      }
-      
-    } catch (localError) {
-      console.error('Erro no fallback local:', localError);
-    }
-    
-    return false;
-  }
-}
-
-// 5. Sistema de sincronização
-function syncPendingQuestions() {
-  const pending = JSON.parse(
-    localStorage.getItem('pendingQuestions') || '[]'
-  );
-  
-  pending.forEach(async (item, index) => {
-    try {
-      const success = await saveUnansweredQuestion(item.question);
-      if (success) {
-        pending.splice(index, 1);
-      }
-    } catch (syncError) {
-      console.error('Erro na sincronização:', syncError);
-    }
-  });
-  
-  localStorage.setItem('pendingQuestions', JSON.stringify(pending));
-}
-
-// Executa a cada 5 minutos
-setInterval(syncPendingQuestions, 300000);
-
-// 5. Sistema de retentativas
-async retryPendingQuestions() {
-  const pending = JSON.parse(localStorage.getItem('pendingQuestions') || '[]');
-  
-  for (let i = pending.length - 1; i >= 0; i--) {
-    try {
-      const success = await this.saveUnansweredQuestion(pending[i].question);
-      if (success) {
-        pending.splice(i, 1);
-      } else {
-        pending[i].attempts++;
-      }
-    } catch (error) {
-      console.error(`Erro na retentativa: ${error.message}`);
-    }
-  }
-  
-  localStorage.setItem('pendingQuestions', JSON.stringify(pending));
-  
-  if (pending.length === 0 && this.retryInterval) {
-    clearInterval(this.retryInterval);
-    this.retryInterval = null;
-  }
-}
-
-// Método para reenviar perguntas armazenadas localmente
-async retryFailedQuestions() {
-  const localData = JSON.parse(localStorage.getItem('unanswered') || [];
-  
-  for (const item of [...localData]) {
-    try {
-      await this.saveUnansweredQuestion(item.question);
-      localData.splice(localData.indexOf(item), 1);
-    } catch (error) {
-      console.error('Falha ao reenviar:', item.question);
-    }
-  }
-  
-  localStorage.setItem('unanswered', JSON.stringify(localData));
-}
             hashString(str) {
                 let hash = 0;
                 for (let i = 0; i < str.length; i++) {
@@ -1047,7 +1008,7 @@ async retryFailedQuestions() {
                 });
             }
 
-            async checkModelStatus() {
+            async getModelStatus() {
                 return new Promise((resolve, reject) => {
                     const transaction = db.transaction(CONFIG.STORE_NAME, 'readonly');
                     const store = transaction.objectStore(CONFIG.STORE_NAME);
@@ -1159,8 +1120,6 @@ async retryFailedQuestions() {
                         this.addBotMessage(`Você quis dizer uma dessas opções?\n\n${possibleAnswers}\n\nResponda com o número correspondente.`);
                     } else {
                         this.addBotMessage("Não encontrei uma resposta para essa pergunta. Tente reformular ou perguntar de outra forma.");
-                        // Salva a pergunta não respondida na aba "Novas perguntas"
-                        this.saveUnansweredQuestion(question);
                     }
                 }, 1000);
             }
@@ -1187,9 +1146,29 @@ async retryFailedQuestions() {
                     advancedModeEnabled = e.target.checked;
                     if (advancedModeEnabled && !modelLoaded && !modelLoading) {
                         this.startModelLoading();
+                        this.saveModelStatus(true);
+                    } else if (!advancedModeEnabled) {
+                        this.saveModelStatus(false);
                     }
                     
                     this.addBotMessage(`Modo avançado ${advancedModeEnabled ? 'ativado' : 'desativado'}.`);
+                });
+                
+                // Botão de sugestões
+                suggestButton.addEventListener('click', () => {
+                    suggestionModal.style.display = 'flex';
+                });
+                
+                // Fechar modal
+                closeModal.addEventListener('click', () => {
+                    suggestionModal.style.display = 'none';
+                });
+                
+                // Fechar modal ao clicar fora
+                window.addEventListener('click', (e) => {
+                    if (e.target === suggestionModal) {
+                        suggestionModal.style.display = 'none';
+                    }
                 });
             }
         }
