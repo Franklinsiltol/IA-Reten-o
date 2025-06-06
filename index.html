@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>NeuroAssist - Assistente Inteligente (v2.1 Corrigido)</title>
+    <title>NeuroAssist - Assistente Inteligente (v2.0)</title>
     <!-- Dependências -->
     <script src="https://cdn.jsdelivr.net/npm/fuse.js@6.6.2"></script>
     <script src="https://cdn.jsdelivr.net/npm/@tensorflow/tfjs@3.18.0"></script>
@@ -770,67 +770,56 @@
                     minMatchCharLength: 3,
                 });
             }
-            
+
             /**
-             * CORRIGIDO: Orquestra a busca por uma resposta e a exibição na UI.
+             * Lida com a pergunta do usuário, decidindo qual método de busca usar.
              */
             async _handleQuestion() {
                 const question = this.elements.questionInput.value.trim();
                 if (!question) return;
-
+                
                 this._addUserMessage(question);
                 this.elements.questionInput.value = '';
-
+                
+                // Verifica se é um comando especial
                 if (question.startsWith('/')) {
                     this._handleCommand(question);
                     return;
                 }
-
-                // 1. Mostra o indicador de digitação imediatamente.
+                
                 this._showTypingIndicator();
 
                 try {
-                    let answerText = null;
-                    let answerOptions = [];
-
-                    // 2. Tenta com o modelo semântico primeiro
+                    // 1. Tenta com o modelo semântico (se ativo e carregado)
                     if (this.state.isAdvancedMode && this.state.isModelLoaded) {
                         const embeddingMatch = await this._findBestMatchWithEmbedding(question);
                         if (embeddingMatch) {
-                            answerText = embeddingMatch.item.answer;
+                            this._addBotMessage(embeddingMatch.item.answer);
+                            return;
                         }
                     }
                     
-                    // 3. Se não encontrou resposta com IA, usa a busca textual (Fuse.js)
-                    if (!answerText) {
-                        if (!this.state.fuse) {
-                            answerText = "A base de conhecimento não está pronta. Tente novamente em alguns segundos.";
-                        } else {
-                            const results = this.state.fuse.search(question);
-                            
-                            if (results.length > 0 && results[0].score < this.config.FUSE_THRESHOLD) {
-                                answerText = results[0].item.answer;
-                            } else if (results.length > 0) {
-                                answerText = "Não tenho certeza, mas talvez uma destas opções ajude:";
-                                answerOptions = results.slice(0, 3);
-                            } else {
-                                answerText = "Desculpe, não encontrei uma resposta para isso. Você pode tentar reformular a pergunta ou usar o botão de sugestão para nos ajudar a melhorar!";
-                            }
-                        }
-                    }
-
-                    // 4. Adiciona a resposta do bot após um pequeno delay para simular o "pensamento".
-                    // A função _addBotMessage irá remover o indicador e exibir a nova mensagem.
+                    // 2. Fallback para busca textual com Fuse.js
                     setTimeout(() => {
-                        this._addBotMessage(answerText, answerOptions);
+                        if (!this.state.fuse) {
+                            this._addBotMessage("A base de conhecimento não está pronta. Tente novamente em alguns segundos.");
+                            return;
+                        }
+                        
+                        const results = this.state.fuse.search(question);
+                        
+                        if (results.length > 0 && results[0].score < this.config.FUSE_THRESHOLD) {
+                            this._addBotMessage(results[0].item.answer);
+                        } else if (results.length > 0) {
+                            this._addBotMessage("Não tenho certeza, mas talvez uma destas opções ajude:", results.slice(0, 3));
+                        } else {
+                            this._addBotMessage("Desculpe, não encontrei uma resposta para isso. Você pode tentar reformular a pergunta ou usar o botão de sugestão para nos ajudar a melhorar!");
+                        }
                     }, 800);
 
                 } catch (error) {
                     console.error("Erro ao processar pergunta:", error);
-                    // Garante que o indicador seja removido mesmo em caso de erro.
-                    setTimeout(() => {
-                        this._addBotMessage("Ocorreu um erro ao processar sua pergunta. Por favor, tente novamente.");
-                    }, 800);
+                    this._addBotMessage("Ocorreu um erro ao processar sua pergunta. Por favor, tente novamente.");
                 }
             }
 
@@ -937,25 +926,35 @@
                     this.state.conversationHistory.splice(0, this.state.conversationHistory.length - 10);
                 }
             }
-            
-            /**
-             * CORRIGIDO: Simplificada para remover o indicador e adicionar a mensagem.
-             */
+
             _addBotMessage(text, options = []) {
                 this._removeTypingIndicator();
-                this._addMessage(text, 'bot', options);
-                this.state.conversationHistory.push({ role: 'assistant', content: text });
+                
+                const showMessage = () => {
+                    this._addMessage(text, 'bot', options);
+                    this.state.conversationHistory.push({ role: 'assistant', content: text });
+                };
+
+                // Simula digitação para respostas mais longas
+                if (text.length > 50) {
+                    this._showTypingIndicator();
+                    setTimeout(showMessage, Math.min(text.length * 15, 1500));
+                } else {
+                    showMessage();
+                }
             }
 
             _addMessage(text, sender, options = []) {
                 const messageDiv = document.createElement('div');
                 messageDiv.className = `message ${sender}-message`;
 
+                // **NOVO: Cria hiperlinks automaticamente**
                 const formattedText = this._createHyperlinks(text);
                 const contentDiv = document.createElement('div');
-                contentDiv.innerHTML = formattedText.replace(/\n/g, '<br>');
+                contentDiv.innerHTML = formattedText.replace(/\n/g, '<br>'); // Converte quebras de linha
                 messageDiv.appendChild(contentDiv);
 
+                // Adiciona botões de opção, se houver
                 if (options.length > 0) {
                     options.forEach(result => {
                         const button = document.createElement('button');
@@ -1065,6 +1064,7 @@
                 });
             }
 
+
             // --- MÉTODOS AUXILIARES E UTILITÁRIOS ---
 
             async _loadFromDatabase() {
@@ -1102,6 +1102,7 @@
             }
 
             _parseCSV(csvText) {
+                // Regex para lidar com campos entre aspas, incluindo aspas duplas escapadas.
                 const regex = /(,|\r?\n|^)("(?:[^"]|"")*"|[^",\r\n]*)/gi;
                 let matches;
                 const data = [[]];
@@ -1119,6 +1120,9 @@
                 return data;
             }
             
+            /**
+             * Converte URLs em um texto para tags <a> clicáveis.
+             */
             _createHyperlinks(text) {
                 if (!text) return '';
                 const urlRegex = /(\b(https?|ftp|file):\/\/[-A-Z0-9+&@#\/%?=~_|!:,.;]*[-A-Z0-9+&@#\/%=~_|])|(\bwww\.[-A-Z0-9+&@#\/%?=~_|!:,.;]*[-A-Z0-9+&@#\/%=~_|])/ig;
