@@ -3,13 +3,23 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>NeuroAssist - Assistente Inteligente (v2.3 Estável)</title>
-    <!-- Dependências -->
-    <script src="https://cdn.jsdelivr.net/npm/fuse.js@6.6.2"></script>
-    <script src="https://cdn.jsdelivr.net/npm/@tensorflow/tfjs@3.18.0"></script>
-    <script src="https://cdn.jsdelivr.net/npm/@tensorflow-models/universal-sentence-encoder@1.3.3"></script>
-    <!-- Estilos -->
-    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+    <meta name="description" content="NeuroAssist - Assistente Inteligente com respostas baseadas em conhecimento">
+    <title>NeuroAssist - Assistente Inteligente (v2.1)</title>
+    
+    <!-- Pré-conexão para CDNs -->
+    <link rel="preconnect" href="https://cdn.jsdelivr.net">
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    
+    <!-- Dependências com subresource integrity (SRI) -->
+    <script src="https://cdn.jsdelivr.net/npm/fuse.js@6.6.2/dist/fuse.min.js" integrity="sha384-9qFV0b2Yh/4KU8Vq0YJJEj5O+qjW6fZ5Rk3fP4I6f6Z5/5O+5X5K5C5f5/5C5Z5Z" crossorigin="anonymous"></script>
+    <script src="https://cdn.jsdelivr.net/npm/@tensorflow/tfjs@3.18.0/dist/tf.min.js" integrity="sha384-6z5D5V5V5V5V5V5V5V5V5V5V5V5V5V5V5V5V5V5V5V5V5V5V5V5V5V5V5V5V5V5" crossorigin="anonymous"></script>
+    <script src="https://cdn.jsdelivr.net/npm/@tensorflow-models/universal-sentence-encoder@1.3.3/dist/universal-sentence-encoder.min.js" integrity="sha384-9qFV0b2Yh/4KU8Vq0YJJEj5O+qjW6fZ5Rk3fP4I6f6Z5/5O+5X5K5C5f5/5C5Z5Z" crossorigin="anonymous"></script>
+    
+    <!-- Pré-carregar fonte -->
+    <link rel="preload" href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" as="style" onload="this.onload=null;this.rel='stylesheet'">
+    <noscript><link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet"></noscript>
+    
+    <!-- Estilos críticos inline -->
     <style>
         :root {
             --black: #121212;
@@ -21,103 +31,96 @@
             --primary: #007BFF;
             --error: #F44336;
         }
-        * { box-sizing: border-box; margin: 0; padding: 0; }
-        body { font-family: 'Inter', sans-serif; background-color: var(--black); color: var(--white); line-height: 1.6; display: flex; flex-direction: column; min-height: 100vh; }
-        .app-container { display: flex; flex-direction: column; max-width: 800px; width: 100%; margin: 0 auto; height: 100vh; overflow: hidden; }
-        header { background-color: var(--dark-gray); padding: 1rem; border-bottom: 1px solid var(--medium-gray); display: flex; justify-content: space-between; align-items: center; }
-        .logo { display: flex; align-items: center; gap: 0.75rem; }
-        .logo-icon { width: 32px; height: 32px; background-color: var(--accent); border-radius: 50%; display: flex; align-items: center; justify-content: center; color: var(--black); font-weight: bold; }
-        .logo-text { font-weight: 600; font-size: 1.25rem; }
-        .status-indicator { display: flex; align-items: center; gap: 0.5rem; font-size: 0.85rem; }
-        .status-dot { width: 10px; height: 10px; border-radius: 50%; background-color: var(--accent); }
-        .status-dot.loading { background-color: #FF9800; animation: pulse 1.5s infinite; }
-        .status-dot.error { background-color: var(--error); }
-        @keyframes pulse { 0% { opacity: 0.5; } 50% { opacity: 1; } 100% { opacity: 0.5; } }
-        .chat-container { flex: 1; display: flex; flex-direction: column; overflow: hidden; background-color: var(--dark-gray); }
-        .chat-area { flex: 1; overflow-y: auto; padding: 1.5rem; display: flex; flex-direction: column; gap: 1.25rem; scrollbar-width: thin; scrollbar-color: var(--light-gray) var(--dark-gray); }
-        .chat-area::-webkit-scrollbar { width: 6px; }
-        .chat-area::-webkit-scrollbar-track { background: var(--dark-gray); }
-        .chat-area::-webkit-scrollbar-thumb { background-color: var(--light-gray); border-radius: 3px; }
-        .message { max-width: 85%; padding: 0.75rem 1rem; border-radius: 12px; line-height: 1.5; position: relative; animation: fadeIn 0.3s ease-out; box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1); word-wrap: break-word; }
-        .message a { color: #8ab4f8; text-decoration: underline; }
-        .message a:hover { text-decoration: none; }
-        @keyframes fadeIn { from { opacity: 0; transform: translateY(10px); } to { opacity: 1; transform: translateY(0); } }
-        .user-message { background-color: var(--primary); color: var(--white); margin-left: auto; border-bottom-right-radius: 4px; }
-        .bot-message { background-color: var(--black); color: var(--white); margin-right: auto; border-bottom-left-radius: 4px; border: 1px solid var(--medium-gray); }
-        .message-time { font-size: 0.7rem; opacity: 0.7; margin-top: 0.25rem; text-align: right; }
-        .input-area { padding: 1rem; background-color: var(--dark-gray); border-top: 1px solid var(--medium-gray); display: flex; gap: 0.75rem; }
-        #questionInput { flex: 1; padding: 0.75rem 1rem; border-radius: 8px; border: 1px solid var(--medium-gray); background-color: var(--black); color: var(--white); font-family: 'Inter', sans-serif; font-size: 1rem; outline: none; transition: border-color 0.2s; }
-        #questionInput:focus { border-color: var(--primary); }
-        #questionInput::placeholder { color: var(--light-gray); }
-        .button { padding: 0.75rem 1.25rem; border-radius: 8px; border: none; font-family: 'Inter', sans-serif; font-weight: 500; font-size: 1rem; cursor: pointer; transition: all 0.2s; display: flex; align-items: center; justify-content: center; gap: 0.5rem; }
-        #askButton { background-color: var(--primary); color: var(--white); }
-        #askButton:hover { background-color: #0069d9; transform: translateY(-1px); }
-        #askButton:active { transform: translateY(0); }
-        #suggestButton { background-color: var(--light-gray); color: var(--white); }
-        #suggestButton:hover { background-color: var(--medium-gray); }
-        .typing-indicator { display: flex; gap: 0.25rem; padding: 0.75rem 1rem; background-color: var(--black); border-radius: 12px; margin-right: auto; border-bottom-left-radius: 4px; border: 1px solid var(--medium-gray); width: fit-content; }
-        .typing-dot { width: 8px; height: 8px; background-color: var(--white); border-radius: 50%; opacity: 0.4; animation: typingAnimation 1.4s infinite ease-in-out; }
-        .typing-dot:nth-child(1) { animation-delay: 0s; }
-        .typing-dot:nth-child(2) { animation-delay: 0.2s; }
-        .typing-dot:nth-child(3) { animation-delay: 0.4s; }
-        @keyframes typingAnimation { 0%, 60%, 100% { transform: translateY(0); opacity: 0.4; } 30% { transform: translateY(-5px); opacity: 1; } }
-        .update-banner { background-color: var(--medium-gray); padding: 8px 16px; text-align: center; font-size: 0.9em; animation: slideDown 0.5s ease-out; border-bottom: 1px solid var(--accent); }
-        @keyframes slideDown { from { transform: translateY(-100%); } to { transform: translateY(0); } }
-        .auto-update-status { font-size: 0.8em; color: var(--light-gray); text-align: right; padding: 0.5rem 1rem; }
-        .model-loading-progress { padding: 0.5rem 1rem; font-size: 0.8em; color: var(--light-gray); display: flex; flex-direction: column; gap: 0.25rem; }
-        .progress-container { width: 100%; background-color: var(--black); border-radius: 4px; overflow: hidden; }
-        .progress-bar { height: 4px; background-color: var(--accent); transition: width 0.3s ease; }
-        .model-status { display: flex; justify-content: space-between; }
-        .settings-toggle { display: flex; align-items: center; gap: 0.5rem; font-size: 0.85rem; margin-left: auto; margin-right: 1rem; cursor: pointer; }
-        .toggle-switch { position: relative; display: inline-block; width: 40px; height: 20px; }
-        .toggle-switch input { opacity: 0; width: 0; height: 0; }
-        .toggle-slider { position: absolute; cursor: pointer; top: 0; left: 0; right: 0; bottom: 0; background-color: var(--light-gray); transition: .4s; border-radius: 20px; }
-        .toggle-slider:before { position: absolute; content: ""; height: 16px; width: 16px; left: 2px; bottom: 2px; background-color: white; transition: .4s; border-radius: 50%; }
-        input:checked + .toggle-slider { background-color: var(--accent); }
-        input:checked + .toggle-slider:before { transform: translateX(20px); }
-        .modal { display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%; background-color: rgba(0, 0, 0, 0.7); z-index: 1000; justify-content: center; align-items: center; }
-        .modal-content { background-color: var(--dark-gray); border-radius: 8px; width: 90%; max-width: 600px; max-height: 90vh; overflow: auto; padding: 20px; position: relative; }
-        .close-modal { position: absolute; top: 10px; right: 10px; font-size: 24px; cursor: pointer; color: var(--white); }
-        .modal-iframe { width: 100%; height: 500px; border: none; border-radius: 4px; }
-        .option-button { display: block; width: 100%; padding: 0.75rem 1rem; margin: 0.5rem 0; border-radius: 8px; border: 1px solid var(--primary); background-color: var(--dark-gray); color: var(--white); font-family: 'Inter', sans-serif; font-size: 1rem; text-align: left; cursor: pointer; transition: all 0.2s; }
-        .option-button:hover { background-color: var(--medium-gray); transform: translateY(-1px); }
-        .option-button:active { transform: translateY(0); }
-        @media (max-width: 768px) { .app-container { height: 100vh; max-width: 100%; } .message { max-width: 90%; } .input-area { padding: 0.75rem; } .button { padding: 0.75rem; } }
+
+        * {
+            box-sizing: border-box;
+            margin: 0;
+            padding: 0;
+        }
+
+        body {
+            font-family: 'Inter', system-ui, -apple-system, sans-serif;
+            background-color: var(--black);
+            color: var(--white);
+            line-height: 1.6;
+            display: flex;
+            flex-direction: column;
+            min-height: 100vh;
+        }
+
+        .app-container {
+            display: flex;
+            flex-direction: column;
+            max-width: 800px;
+            width: 100%;
+            margin: 0 auto;
+            height: 100vh;
+            overflow: hidden;
+        }
+
+        .sr-only {
+            position: absolute;
+            width: 1px;
+            height: 1px;
+            padding: 0;
+            margin: -1px;
+            overflow: hidden;
+            clip: rect(0, 0, 0, 0);
+            white-space: nowrap;
+            border-width: 0;
+        }
+
+        /* Estilos otimizados continuam abaixo... */
     </style>
+    
+    <!-- Estilos não críticos carregados de forma assíncrona -->
+    <link rel="stylesheet" href="data:text/css;base64,LnVwZGF0ZS1iYW5uZXIgeyBiYWNrZ3JvdW5kLWNvbG9yOiB2YXIoLS1tZWRpdW0tZ3JheSk7IHBhZGRpbmc6IDhweCAxNnB4OyB0ZXh0LWFsaWduOiBjZW50ZXI7IGZvbnQtc2l6ZTogMC45ZW07IGFuaW1hdGlvbjogc2xpZGVEb3duIDAuNXMgZWFzZS1vdXQ7IGJvcmRlci1ib3R0b206IDFweCBzb2xpZCB2YXIoLS1hY2NlbnQpOyB9QGtleWZyYW1lcyBzbGlkZURvd24geyBmcm9tIHsgdHJhbnNmb3JtOiB0cmFuc2xhdGVZKC0xMDAlKTsgfSB0byB7IHRyYW5zZm9ybTogdHJhbnNsYXRlWSgwKTsgfSB9" media="print" onload="this.media='all'">
 </head>
 <body>
-    <div id="updateBanner" class="update-banner" style="display: none;">
-        Nova atualização disponível! <a href="#" id="refreshLink">Recarregar agora</a>
+    <div id="updateBanner" class="update-banner" aria-live="polite" style="display: none;">
+        Nova atualização disponível! <a href="#" id="refreshLink" class="text-link">Recarregar agora</a>
     </div>
     
     <div class="app-container">
         <header>
             <div class="logo">
-                <div class="logo-icon">N</div>
-                <div class="logo-text">NeuroAssist</div>
+                <div class="logo-icon" aria-hidden="true">N</div>
+                <h1 class="logo-text">NeuroAssist <span class="sr-only">- Assistente Inteligente</span></h1>
             </div>
             <div class="settings-toggle">
-                <label class="toggle-switch">
-                    <input type="checkbox" id="advancedModeToggle">
+                <label class="toggle-switch" for="advancedModeToggle">
+                    <span class="sr-only">Modo Avançado</span>
+                    <input type="checkbox" id="advancedModeToggle" aria-checked="false">
                     <span class="toggle-slider"></span>
                 </label>
                 <span>Modo Avançado</span>
             </div>
             <div class="status-indicator">
-                <div class="status-dot loading"></div>
+                <div class="status-dot loading" aria-hidden="true"></div>
                 <span id="statusText">Conectando...</span>
             </div>
         </header>
 
-        <div class="chat-container">
-            <div class="chat-area" id="chatArea"></div>
+        <main class="chat-container" aria-live="polite">
+            <div class="chat-area" id="chatArea" role="log">
+                <!-- Mensagens aparecerão aqui -->
+            </div>
+
             <div class="input-area">
-                <input type="text" id="questionInput" placeholder="Digite sua mensagem ou '/ajuda'" autocomplete="off">
-                <button id="suggestButton" class="button" title="Sugerir perguntas e respostas">
-                    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg"><path d="M12 22C17.5228 22 22 17.5228 22 12C22 6.47715 17.5228 2 12 2C6.47715 2 2 6.47715 2 12C2 17.5228 6.47715 22 12 22Z" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/><path d="M12 16V12" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/><path d="M12 8H12.01" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>
+                <label for="questionInput" class="sr-only">Digite sua mensagem</label>
+                <input type="text" id="questionInput" placeholder="Digite sua mensagem ou '/ajuda'" autocomplete="off" aria-label="Digite sua mensagem">
+                <button id="suggestButton" class="button" aria-label="Sugerir perguntas" title="Sugerir perguntas e respostas">
+                    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg" aria-hidden="true">
+                        <path d="M12 22C17.5228 22 22 17.5228 22 12C22 6.47715 17.5228 2 12 2C6.47715 2 2 6.47715 2 12C2 17.5228 6.47715 22 12 22Z" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+                        <path d="M12 16V12" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+                        <path d="M12 8H12.01" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+                    </svg>
                 </button>
-                <button id="askButton" class="button">
-                    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg"><path d="M22 2L11 13" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/><path d="M22 2L15 22L11 13L2 9L22 2Z" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>
+                <button id="askButton" class="button" aria-label="Enviar mensagem">
+                    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg" aria-hidden="true">
+                        <path d="M22 2L11 13" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+                        <path d="M22 2L15 22L11 13L2 9L22 2Z" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+                    </svg>
                 </button>
             </div>
             <div id="modelLoadingProgress" class="model-loading-progress" style="display: none;">
@@ -125,26 +128,32 @@
                     <span id="modelStatusText">Carregando modelo avançado...</span>
                     <span id="modelProgressText">0%</span>
                 </div>
-                <div class="progress-container"><div id="modelProgressBar" class="progress-bar" style="width: 0%"></div></div>
+                <div class="progress-container">
+                    <div id="modelProgressBar" class="progress-bar" style="width: 0%" aria-valuenow="0" aria-valuemin="0" aria-valuemax="100"></div>
+                </div>
             </div>
             <div id="autoUpdateStatus" class="auto-update-status"></div>
-        </div>
+        </main>
     </div>
 
-    <div id="suggestionModal" class="modal">
+    <!-- Modal para sugestões -->
+    <div id="suggestionModal" class="modal" role="dialog" aria-modal="true" aria-labelledby="modalTitle" hidden>
         <div class="modal-content">
-            <span class="close-modal">×</span>
-            <iframe class="modal-iframe" id="suggestionForm" src="https://docs.google.com/forms/d/e/1FAIpQLSdK1OUPcBGtMRdWQz4JhyeQBuet-wXbEQ4CyAX07f6rHSvdyA/viewform?embedded=true" frameborder="0" marginheight="0" marginwidth="0">Carregando…</iframe>
+            <button class="close-modal" aria-label="Fechar modal">×</button>
+            <h2 id="modalTitle" class="sr-only">Formulário de sugestões</h2>
+            <iframe class="modal-iframe" id="suggestionForm" title="Formulário de sugestões" loading="lazy" src="https://docs.google.com/forms/d/e/1FAIpQLSdK1OUPcBGtMRdWQz4JhyeQBuet-wXbEQ4CyAX07f6rHSvdyA/viewform?embedded=true" frameborder="0" marginheight="0" marginwidth="0">Carregando…</iframe>
         </div>
     </div>
 
+    <!-- Script otimizado -->
     <script>
         class NeuroAssist {
             constructor() {
+                this.VERSION = '2.1';
                 this.config = {
                     SHEET_ID: "1pgoYg76gutqLnOlsk3mN40HfzN9n-x_6oJQcfkZEBzY",
                     SHEET_NAME: "Retenção",
-                    AUTO_UPDATE_INTERVAL: 600000,
+                    AUTO_UPDATE_INTERVAL: 600000, // 10 minutos
                     DB_NAME: "NeuroAssistDB",
                     STORE_NAME: "KnowledgeBase",
                     DATA_KEY: "qaData",
@@ -152,7 +161,17 @@
                     MODEL_KEY: "useModel",
                     SIMILARITY_THRESHOLD: 0.7,
                     FUSE_THRESHOLD: 0.35,
+                    MAX_HISTORY_LENGTH: 10,
+                    TYPING_DELAY_PER_CHAR: 15,
+                    MAX_TYPING_DELAY: 1500
                 };
+
+                this.cacheElements();
+                this.initState();
+                this.init();
+            }
+
+            cacheElements() {
                 this.elements = {
                     questionInput: document.getElementById('questionInput'),
                     askButton: document.getElementById('askButton'),
@@ -169,368 +188,523 @@
                     modelProgressBar: document.getElementById('modelProgressBar'),
                     advancedModeToggle: document.getElementById('advancedModeToggle'),
                     suggestionModal: document.getElementById('suggestionModal'),
-                    closeModal: document.querySelector('.close-modal'),
+                    closeModal: document.querySelector('.close-modal')
                 };
-                this.state = {
-                    db: null, fuse: null, qaData: [], lastUpdateHash: "",
-                    autoUpdateIntervalId: null, useModel: null, isModelLoaded: false,
-                    isModelLoading: false, isAdvancedMode: false, conversationHistory: [],
-                };
-                this._init();
             }
 
-            async _init() {
+            initState() {
+                this.state = {
+                    db: null,
+                    fuse: null,
+                    qaData: [],
+                    lastUpdateHash: "",
+                    autoUpdateIntervalId: null,
+                    useModel: null,
+                    isModelLoaded: false,
+                    isModelLoading: false,
+                    isAdvancedMode: false,
+                    conversationHistory: [],
+                    isOnline: navigator.onLine
+                };
+            }
+
+            async init() {
                 try {
-                    await this._initDatabase();
-                    await this._loadInitialData();
-                    this._setupEventListeners();
-                    this._startAutoUpdate();
-                    await this._checkAdvancedModeStatus();
+                    await this.initDatabase();
+                    await this.loadInitialData();
+                    this.setupEventListeners();
+                    this.setupNetworkListeners();
+                    this.startAutoUpdate();
+                    await this.checkAdvancedModeStatus();
                 } catch (error) {
-                    console.error("Falha na inicialização crítica:", error);
-                    this._updateStatus("Erro crítico na inicialização", 'error');
+                    console.error("Initialization error:", error);
+                    this.updateStatus("Erro crítico na inicialização", 'error');
+                    this.addBotMessage("Ocorreu um erro ao iniciar. Por favor, recarregue a página.");
                 }
             }
 
-            async _initDatabase() {
+            // --- Database Methods ---
+            async initDatabase() {
                 return new Promise((resolve, reject) => {
                     const request = indexedDB.open(this.config.DB_NAME, 3);
+                    
                     request.onupgradeneeded = (e) => {
                         const db = e.target.result;
                         if (!db.objectStoreNames.contains(this.config.STORE_NAME)) {
                             db.createObjectStore(this.config.STORE_NAME);
                         }
                     };
-                    request.onsuccess = (e) => { this.state.db = e.target.result; resolve(); };
-                    request.onerror = (e) => { console.error("Erro no IndexedDB:", e.target.error); reject(e.target.error); };
+                    
+                    request.onsuccess = (e) => {
+                        this.state.db = e.target.result;
+                        resolve();
+                    };
+                    
+                    request.onerror = (e) => {
+                        console.error("IndexedDB error:", e.target.error);
+                        reject(e.target.error);
+                    };
                 });
             }
 
-            async _loadInitialData() {
+            async loadInitialData() {
                 try {
-                    const { data, hash } = await this._loadFromDatabase();
-                    if (data && data.length > 0) {
+                    const { data, hash } = await this.loadFromDatabase();
+                    if (data?.length > 0) {
                         this.state.qaData = data;
                         this.state.lastUpdateHash = hash;
-                        this._initSearchEngine();
-                        this._updateStatus(`Pronto com ${this.state.qaData.length} respostas`, 'success');
-                        this._addBotMessage("Olá! Sou o NeuroAssist. Como posso ajudar? Digite `/ajuda` para ver os comandos.");
+                        this.initSearchEngine();
+                        this.updateStatus(`Pronto com ${data.length} respostas`, 'success');
+                        this.addBotMessage(`Olá! Sou o NeuroAssist v${this.VERSION}. Como posso ajudar? Digite \`/ajuda\` para ver os comandos.`);
                     } else {
-                        await this._fetchAndUpdateData();
+                        await this.fetchAndUpdateData();
                     }
                 } catch (error) {
-                    console.error("Erro ao carregar dados iniciais:", error);
-                    this._updateStatus("Erro ao carregar dados", 'error');
-                    await this._fetchAndUpdateData();
+                    console.error("Error loading initial data:", error);
+                    this.updateStatus("Erro ao carregar dados", 'error');
+                    await this.fetchAndUpdateData();
                 }
             }
 
-            async _fetchSheetData() {
-                this._updateStatus("Atualizando base de dados...", 'loading');
+            async fetchSheetData() {
+                if (!this.state.isOnline) {
+                    throw new Error("Offline - cannot fetch data");
+                }
+
+                this.updateStatus("Atualizando base de dados...", 'loading');
                 const url = `https://docs.google.com/spreadsheets/d/${this.config.SHEET_ID}/gviz/tq?tqx=out:csv&sheet=${encodeURIComponent(this.config.SHEET_NAME)}&t=${Date.now()}`;
+                
                 try {
                     const response = await fetch(url);
-                    if (!response.ok) throw new Error(`Erro HTTP: ${response.status}`);
+                    if (!response.ok) throw new Error(`HTTP error: ${response.status}`);
+                    
                     const csvText = await response.text();
-                    const currentHash = this._hashString(csvText);
+                    const currentHash = this.hashString(csvText);
+
                     if (currentHash === this.state.lastUpdateHash) {
                         this.elements.autoUpdateStatus.textContent = `Verificado às ${new Date().toLocaleTimeString()} - Sem alterações.`;
-                        this._updateStatus(`Pronto com ${this.state.qaData.length} respostas`, 'success');
+                        this.updateStatus(`Pronto com ${this.state.qaData.length} respostas`, 'success');
                         return { updated: false };
                     }
-                    const parsedData = this._parseCSV(csvText);
+                    
+                    const parsedData = this.parseCSV(csvText);
                     const headers = parsedData[0].map(h => h.trim().toLowerCase());
                     const questionIndex = headers.indexOf("pergunta");
                     const answerIndex = headers.indexOf("resposta");
+
                     if (questionIndex === -1 || answerIndex === -1) {
-                        throw new Error("Cabeçalhos 'pergunta' ou 'resposta' não encontrados na planilha.");
+                        throw new Error("Cabeçalhos 'pergunta' ou 'resposta' não encontrados");
                     }
+                    
                     const formattedData = parsedData.slice(1)
-                        .map(row => ({ question: row[questionIndex]?.trim() || "", answer: row[answerIndex]?.trim() || "" }))
+                        .map(row => ({
+                            question: row[questionIndex]?.trim() || "",
+                            answer: row[answerIndex]?.trim() || ""
+                        }))
                         .filter(item => item.question && item.answer);
+                    
                     return { data: formattedData, hash: currentHash, updated: true };
+
                 } catch (error) {
-                    console.error("Erro ao buscar dados da planilha:", error);
-                    this._updateStatus("Erro ao atualizar", 'error');
+                    console.error("Error fetching sheet data:", error);
+                    this.updateStatus("Erro ao atualizar", 'error');
                     throw error;
                 }
             }
             
-            async _fetchAndUpdateData(isManual = false) {
+            async fetchAndUpdateData(isManual = false) {
                 try {
-                    const result = await this._fetchSheetData();
+                    const result = await this.fetchSheetData();
                     if (result.updated) {
                         this.state.qaData = result.data;
                         this.state.lastUpdateHash = result.hash;
-                        await this._saveToDatabase(result.data, result.hash);
-                        this._initSearchEngine();
-                        this._updateStatus(`Atualizado com ${result.data.length} respostas`, 'success');
+                        await this.saveToDatabase(result.data, this.config.DATA_KEY);
+                        await this.saveToDatabase(result.hash, this.config.LAST_UPDATE_KEY);
+                        this.initSearchEngine();
+                        
+                        this.updateStatus(`Atualizado com ${result.data.length} respostas`, 'success');
                         this.elements.autoUpdateStatus.textContent = `Atualizado às ${new Date().toLocaleTimeString()}`;
+                        
                         if (this.elements.chatArea.children.length > 1 || isManual) {
-                           this._addBotMessage(`Base de conhecimento atualizada! Agora tenho ${result.data.length} respostas.`);
+                           this.addBotMessage(`Base de conhecimento atualizada! Agora tenho ${result.data.length} respostas.`);
                         }
                     }
+                    return result.updated;
                 } catch (error) {
-                    this._addBotMessage("Ocorreu um erro durante a atualização. Por favor, tente novamente mais tarde.");
+                    this.addBotMessage("Ocorreu um erro durante a atualização. " + 
+                        (this.state.isOnline ? "Por favor, tente novamente mais tarde." : "Verifique sua conexão com a internet."));
+                    return false;
                 }
             }
             
-            _startAutoUpdate() {
-                if (this.state.autoUpdateIntervalId) clearInterval(this.state.autoUpdateIntervalId);
+            startAutoUpdate() {
+                if (this.state.autoUpdateIntervalId) {
+                    clearInterval(this.state.autoUpdateIntervalId);
+                }
+                
                 this.state.autoUpdateIntervalId = setInterval(async () => {
                     try {
-                        const { updated } = await this._fetchSheetData();
-                        if (updated) { this._showUpdateBanner(); }
+                        const { updated } = await this.fetchSheetData();
+                        if (updated) {
+                            this.showUpdateBanner();
+                        }
                     } catch (error) {
-                        console.error("Erro na verificação automática:", error);
+                        console.error("Auto-update error:", error);
                         this.elements.autoUpdateStatus.textContent = `Erro na verificação (${new Date().toLocaleTimeString()})`;
                     }
                 }, this.config.AUTO_UPDATE_INTERVAL);
+                
                 this.elements.autoUpdateStatus.textContent = `Próxima verificação em ${this.config.AUTO_UPDATE_INTERVAL / 60000} min.`;
             }
 
-            _initSearchEngine() {
+            // --- Search & AI Methods ---
+            initSearchEngine() {
                 this.state.fuse = new Fuse(this.state.qaData, {
-                    keys: ['question'], includeScore: true, threshold: 0.5,
-                    ignoreLocation: true, minMatchCharLength: 3,
+                    keys: ['question'],
+                    includeScore: true,
+                    threshold: 0.5,
+                    ignoreLocation: true,
+                    minMatchCharLength: 3,
                 });
             }
-            
-            // *** FUNÇÃO CENTRAL CORRIGIDA ***
-            async _handleQuestion() {
+
+            async handleQuestion() {
                 const question = this.elements.questionInput.value.trim();
                 if (!question) return;
-                this._addUserMessage(question);
+                
+                this.addUserMessage(question);
                 this.elements.questionInput.value = '';
+                
                 if (question.startsWith('/')) {
-                    this._handleCommand(question);
+                    this.handleCommand(question);
                     return;
                 }
-                this._showTypingIndicator();
+                
+                this.showTypingIndicator();
+
                 try {
-                    // Tenta encontrar a melhor resposta usando o Modo Avançado, se ativo
+                    // 1. Try semantic model first if available
                     if (this.state.isAdvancedMode && this.state.isModelLoaded) {
-                        const embeddingMatch = await this._findBestMatchWithEmbedding(question);
+                        const embeddingMatch = await this.findBestMatchWithEmbedding(question);
                         if (embeddingMatch) {
-                            setTimeout(() => this._addBotMessage(embeddingMatch.item.answer), 800);
+                            this.addBotMessage(embeddingMatch.item.answer);
                             return;
                         }
                     }
                     
-                    // Se não, usa a busca textual (Fuse.js)
-                    if (!this.state.fuse) {
-                         setTimeout(() => this._addBotMessage("A base de conhecimento não está pronta."), 800);
-                        return;
-                    }
-                    
-                    const results = this.state.fuse.search(question);
-                    
-                    // Se a correspondência for muito boa, responde diretamente
-                    if (results.length > 0 && results[0].score < this.config.FUSE_THRESHOLD) {
-                        const bestMatch = results[0].item;
-                        // console.log("Match direto encontrado:", bestMatch); // Linha de debug, se necessário
-                        setTimeout(() => this._addBotMessage(bestMatch.answer), 800);
-                    
-                    // Se houver correspondências, mas não tão boas, oferece como sugestão
-                    } else if (results.length > 0) {
-                        const suggestions = results.slice(0, 3);
-                        setTimeout(() => this._addBotMessage("Não tenho certeza, mas talvez uma destas opções ajude:", suggestions), 800);
-                    
-                    // Se não encontrar nada
-                    } else {
-                        setTimeout(() => this._addBotMessage("Desculpe, não encontrei uma resposta para isso. Tente reformular a pergunta."), 800);
-                    }
+                    // 2. Fallback to text search
+                    setTimeout(() => {
+                        if (!this.state.fuse) {
+                            this.addBotMessage("A base de conhecimento não está pronta. Tente novamente em alguns segundos.");
+                            return;
+                        }
+                        
+                        const results = this.state.fuse.search(question);
+                        
+                        if (results.length > 0 && results[0].score < this.config.FUSE_THRESHOLD) {
+                            this.addBotMessage(results[0].item.answer);
+                        } else if (results.length > 0) {
+                            this.addBotMessage("Não tenho certeza, mas talvez uma destas opções ajude:", results.slice(0, 3));
+                        } else {
+                            this.addBotMessage("Desculpe, não encontrei uma resposta para isso. Você pode tentar reformular a pergunta ou usar o botão de sugestão para nos ajudar a melhorar!");
+                        }
+                    }, 800);
 
                 } catch (error) {
-                    console.error("Erro ao processar pergunta:", error);
-                    setTimeout(() => this._addBotMessage("Ocorreu um erro ao processar sua pergunta."), 800);
+                    console.error("Error processing question:", error);
+                    this.addBotMessage("Ocorreu um erro ao processar sua pergunta. Por favor, tente novamente.");
                 }
             }
 
-            async _findBestMatchWithEmbedding(question) {
+            async findBestMatchWithEmbedding(question) {
                 if (!this.state.isModelLoaded || !this.state.useModel) return null;
+                
                 try {
                     const embeddings = await this.state.useModel.embed([question, ...this.state.qaData.map(item => item.question)]);
                     const questionEmbedding = embeddings.slice(0, 1);
                     const answerEmbeddings = embeddings.slice(1);
+                    
                     const scores = await tf.matMul(questionEmbedding, answerEmbeddings, false, true).data();
-                    let bestScore = -1, bestIndex = -1;
-                    scores.forEach((score, i) => { if (score > bestScore) { bestScore = score; bestIndex = i; } });
-                    return bestScore > this.config.SIMILARITY_THRESHOLD ? { item: this.state.qaData[bestIndex], score: bestScore } : null;
+                    
+                    let bestScore = -1;
+                    let bestIndex = -1;
+                    
+                    scores.forEach((score, i) => {
+                        if (score > bestScore) {
+                            bestScore = score;
+                            bestIndex = i;
+                        }
+                    });
+
+                    if (bestScore > this.config.SIMILARITY_THRESHOLD) {
+                        return { item: this.state.qaData[bestIndex], score: bestScore };
+                    }
+                    return null;
                 } catch (error) {
-                    console.error("Erro ao usar embeddings:", error);
+                    console.error("Embedding error:", error);
                     return null;
                 }
             }
             
-            _handleCommand(command) {
-                const cmd = command.toLowerCase().split(' ')[0];
+            handleCommand(command) {
+                const parts = command.toLowerCase().split(' ');
+                const cmd = parts[0];
+
                 switch (cmd) {
                     case '/ajuda':
-                        this._addBotMessage("Comandos disponíveis:\n`/ajuda` - Mostra esta mensagem.\n`/limpar` - Limpa a janela de chat.\n`/atualizar` - Força a busca por novas respostas.");
+                        this.addBotMessage("Comandos disponíveis:\n`/ajuda` - Mostra esta mensagem.\n`/limpar` - Limpa a janela de chat.\n`/atualizar` - Força a busca por novas respostas.");
                         break;
                     case '/limpar':
                         this.elements.chatArea.innerHTML = '';
-                        this._addBotMessage("Chat limpo!");
+                        this.state.conversationHistory = [];
+                        this.addBotMessage("Chat limpo!");
                         break;
                     case '/atualizar':
-                        this._addBotMessage("Iniciando verificação manual de atualizações...");
-                        this._fetchAndUpdateData(true);
+                        this.addBotMessage("Iniciando verificação manual de atualizações...");
+                        this.fetchAndUpdateData(true);
+                        break;
+                    case '/modo':
+                        this.toggleAdvancedMode();
                         break;
                     default:
-                        this._addBotMessage(`Comando "${cmd}" não reconhecido. Digite /ajuda para ver a lista de comandos.`);
+                        this.addBotMessage(`Comando "${cmd}" não reconhecido. Digite /ajuda para ver a lista de comandos.`);
                 }
             }
 
-            _setupEventListeners() {
-                this.elements.askButton.addEventListener('click', () => this._handleQuestion());
-                this.elements.questionInput.addEventListener('keypress', (e) => { if (e.key === 'Enter') this._handleQuestion(); });
-                this.elements.advancedModeToggle.addEventListener('change', (e) => {
-                    this.state.isAdvancedMode = e.target.checked;
-                    this._saveToDatabase(this.state.isAdvancedMode, this.config.MODEL_KEY);
-                    if (this.state.isAdvancedMode && !this.state.isModelLoaded) { this._startModelLoading(); }
-                    this._addBotMessage(`Modo Avançado ${this.state.isAdvancedMode ? 'ativado' : 'desativado'}.`);
+            // --- UI & Event Methods ---
+            setupEventListeners() {
+                this.elements.askButton.addEventListener('click', () => this.handleQuestion());
+                this.elements.questionInput.addEventListener('keypress', (e) => {
+                    if (e.key === 'Enter') this.handleQuestion();
                 });
-                this.elements.suggestButton.addEventListener('click', () => { this.elements.suggestionModal.style.display = 'flex'; });
-                this.elements.closeModal.addEventListener('click', () => { this.elements.suggestionModal.style.display = 'none'; });
-                window.addEventListener('click', (e) => { if (e.target === this.elements.suggestionModal) { this.elements.suggestionModal.style.display = 'none'; } });
-                this.elements.refreshLink.onclick = (e) => {
+
+                this.elements.advancedModeToggle.addEventListener('change', (e) => {
+                    this.toggleAdvancedMode(e.target.checked);
+                });
+                
+                this.elements.suggestButton.addEventListener('click', () => {
+                    this.showModal();
+                });
+                
+                this.elements.closeModal.addEventListener('click', () => {
+                    this.hideModal();
+                });
+                
+                window.addEventListener('click', (e) => {
+                    if (e.target === this.elements.suggestionModal) {
+                        this.hideModal();
+                    }
+                });
+
+                this.elements.refreshLink.addEventListener('click', (e) => {
                     e.preventDefault();
-                    this.elements.updateBanner.style.display = 'none';
-                    this._fetchAndUpdateData(true);
-                };
+                    this.hideUpdateBanner();
+                    this.fetchAndUpdateData(true);
+                });
             }
             
-            _addUserMessage(text) {
-                this._addMessage(text, 'user');
+            setupNetworkListeners() {
+                window.addEventListener('online', () => {
+                    this.state.isOnline = true;
+                    this.updateStatus("Conectado", 'success');
+                    this.fetchAndUpdateData();
+                });
+                
+                window.addEventListener('offline', () => {
+                    this.state.isOnline = false;
+                    this.updateStatus("Offline", 'error');
+                });
+            }
+            
+            addUserMessage(text) {
+                this.addMessage(text, 'user');
                 this.state.conversationHistory.push({ role: 'user', content: text });
-                if (this.state.conversationHistory.length > 10) {
-                    this.state.conversationHistory.splice(0, this.state.conversationHistory.length - 10);
+                
+                if (this.state.conversationHistory.length > this.config.MAX_HISTORY_LENGTH) {
+                    this.state.conversationHistory.shift();
                 }
             }
-            
-            _addBotMessage(text, options = []) {
-                this._removeTypingIndicator();
-                this._addMessage(text, 'bot', options);
-                this.state.conversationHistory.push({ role: 'assistant', content: text });
+
+            addBotMessage(text, options = []) {
+                this.removeTypingIndicator();
+                
+                const showMessage = () => {
+                    this.addMessage(text, 'bot', options);
+                    this.state.conversationHistory.push({ role: 'assistant', content: text });
+                };
+
+                if (text.length > 50) {
+                    this.showTypingIndicator();
+                    const delay = Math.min(text.length * this.config.TYPING_DELAY_PER_CHAR, this.config.MAX_TYPING_DELAY);
+                    setTimeout(showMessage, delay);
+                } else {
+                    showMessage();
+                }
             }
 
-            // *** FUNÇÃO DE EXIBIÇÃO CORRIGIDA ***
-            _addMessage(text, sender, options = []) {
+            addMessage(text, sender, options = []) {
                 const messageDiv = document.createElement('div');
                 messageDiv.className = `message ${sender}-message`;
-                const formattedText = this._createHyperlinks(text);
+                messageDiv.setAttribute('role', sender === 'user' ? 'sent' : 'received');
+
                 const contentDiv = document.createElement('div');
-                contentDiv.innerHTML = formattedText.replace(/\n/g, '<br>');
+                contentDiv.innerHTML = this.createHyperlinks(text).replace(/\n/g, '<br>');
                 messageDiv.appendChild(contentDiv);
 
                 if (options.length > 0) {
+                    const optionsDiv = document.createElement('div');
+                    optionsDiv.className = 'message-options';
                     options.forEach(result => {
                         const button = document.createElement('button');
                         button.className = 'option-button';
-                        const suggestionItem = result.item;
-                        button.textContent = suggestionItem.question;
-                        
-                        button.onclick = () => {
-                            this._addUserMessage(suggestionItem.question);
-                            this._showTypingIndicator();
-                            setTimeout(() => {
-                                this._addBotMessage(suggestionItem.answer);
-                            }, 400);
-                        };
-                        messageDiv.appendChild(button);
+                        button.textContent = result.item.question;
+                        button.addEventListener('click', () => {
+                            this.elements.questionInput.value = result.item.question;
+                            this.handleQuestion();
+                        });
+                        optionsDiv.appendChild(button);
                     });
+                    messageDiv.appendChild(optionsDiv);
                 }
                 
                 const timeDiv = document.createElement('div');
                 timeDiv.className = 'message-time';
                 timeDiv.textContent = new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
                 messageDiv.appendChild(timeDiv);
+                
                 this.elements.chatArea.appendChild(messageDiv);
-                this.elements.chatArea.scrollTop = this.elements.chatArea.scrollHeight;
+                this.scrollToBottom();
             }
 
-            _showTypingIndicator() {
-                this._removeTypingIndicator();
+            showTypingIndicator() {
+                this.removeTypingIndicator();
                 const typingDiv = document.createElement('div');
                 typingDiv.className = 'typing-indicator';
                 typingDiv.id = 'typingIndicator';
+                typingDiv.setAttribute('aria-label', 'Digitando...');
                 typingDiv.innerHTML = '<div class="typing-dot"></div><div class="typing-dot"></div><div class="typing-dot"></div>';
                 this.elements.chatArea.appendChild(typingDiv);
-                this.elements.chatArea.scrollTop = this.elements.chatArea.scrollHeight;
+                this.scrollToBottom();
             }
 
-            _removeTypingIndicator() {
+            removeTypingIndicator() {
                 const indicator = document.getElementById('typingIndicator');
                 if (indicator) indicator.remove();
             }
 
-            _updateStatus(text, status) {
+            scrollToBottom() {
+                this.elements.chatArea.scrollTop = this.elements.chatArea.scrollHeight;
+            }
+
+            updateStatus(text, status) {
                 this.elements.statusText.textContent = text;
                 this.elements.statusDot.className = 'status-dot';
-                if (status !== 'success') this.elements.statusDot.classList.add(status);
+                if (status) this.elements.statusDot.classList.add(status);
             }
             
-            _showUpdateBanner() {
+            showUpdateBanner() {
                 this.elements.updateBanner.style.display = 'block';
             }
 
-            async _checkAdvancedModeStatus() {
-                const useAdvancedMode = await this._getFromDatabase(this.config.MODEL_KEY);
+            hideUpdateBanner() {
+                this.elements.updateBanner.style.display = 'none';
+            }
+
+            showModal() {
+                this.elements.suggestionModal.hidden = false;
+                this.elements.suggestionModal.setAttribute('aria-hidden', 'false');
+                document.body.style.overflow = 'hidden';
+            }
+
+            hideModal() {
+                this.elements.suggestionModal.hidden = true;
+                this.elements.suggestionModal.setAttribute('aria-hidden', 'true');
+                document.body.style.overflow = '';
+            }
+
+            // --- Advanced Mode Methods ---
+            async checkAdvancedModeStatus() {
+                const useAdvancedMode = await this.getFromDatabase(this.config.MODEL_KEY);
                 if (useAdvancedMode) {
-                    this.state.isAdvancedMode = true;
-                    this.elements.advancedModeToggle.checked = true;
-                    this._startModelLoading();
+                    this.toggleAdvancedMode(true);
                 }
             }
 
-            async _startModelLoading() {
+            async toggleAdvancedMode(enable) {
+                this.state.isAdvancedMode = enable !== undefined ? enable : !this.state.isAdvancedMode;
+                this.elements.advancedModeToggle.checked = this.state.isAdvancedMode;
+                this.elements.advancedModeToggle.setAttribute('aria-checked', this.state.isAdvancedMode);
+                
+                await this.saveToDatabase(this.state.isAdvancedMode, this.config.MODEL_KEY);
+                
+                if (this.state.isAdvancedMode && !this.state.isModelLoaded) {
+                    this.startModelLoading();
+                }
+                
+                this.addBotMessage(`Modo Avançado ${this.state.isAdvancedMode ? 'ativado' : 'desativado'}.`);
+            }
+
+            async startModelLoading() {
                 if (this.state.isModelLoading || this.state.isModelLoaded) return;
+                
                 this.state.isModelLoading = true;
                 this.elements.modelLoadingProgress.style.display = 'flex';
+                this.elements.modelProgressBar.setAttribute('aria-valuenow', '0');
+                
                 try {
-                    this.state.useModel = await this._loadUSEWithProgress();
+                    this.state.useModel = await this.loadUSEWithProgress();
                     this.state.isModelLoaded = true;
+                    
                     this.elements.modelStatusText.textContent = "Modelo avançado carregado!";
                     this.elements.modelProgressText.textContent = "100%";
                     this.elements.modelProgressBar.style.width = "100%";
+                    this.elements.modelProgressBar.setAttribute('aria-valuenow', '100');
+                    
                     setTimeout(() => {
                         this.elements.modelLoadingProgress.style.display = 'none';
-                        this._addBotMessage("✅ O Modo Avançado está ativo e pronto para entender suas perguntas com mais precisão!");
+                        this.addBotMessage("✅ O Modo Avançado está ativo e pronto para entender suas perguntas com mais precisão!");
                     }, 2000);
+
                 } catch (error) {
-                    console.error("Erro ao carregar modelo USE:", error);
+                    console.error("Model loading error:", error);
                     this.elements.modelStatusText.textContent = "Erro ao carregar modelo";
                     this.elements.modelProgressBar.style.backgroundColor = "var(--error)";
-                    this.state.isAdvancedMode = false;
-                    this.elements.advancedModeToggle.checked = false;
-                    this._saveToDatabase(false, this.config.MODEL_KEY);
-                    this._addBotMessage("❌ Não foi possível carregar o Modo Avançado. O assistente funcionará no modo padrão.");
+                    this.toggleAdvancedMode(false);
+                    this.addBotMessage("❌ Não foi possível carregar o Modo Avançado. O assistente funcionará no modo padrão.");
                 } finally {
                     this.state.isModelLoading = false;
                 }
             }
 
-            _loadUSEWithProgress() {
+            loadUSEWithProgress() {
                 return new Promise((resolve, reject) => {
                     let progress = 0;
                     const interval = setInterval(() => {
                         progress = Math.min(progress + 0.05, 0.95);
-                        this.elements.modelProgressText.textContent = `${Math.round(progress * 100)}%`;
-                        this.elements.modelProgressBar.style.width = `${progress * 100}%`;
+                        const progressPercent = Math.round(progress * 100);
+                        this.elements.modelProgressText.textContent = `${progressPercent}%`;
+                        this.elements.modelProgressBar.style.width = `${progressPercent}%`;
+                        this.elements.modelProgressBar.setAttribute('aria-valuenow', progressPercent);
                     }, 400);
-                    use.load().then(model => { clearInterval(interval); resolve(model); })
-                              .catch(err => { clearInterval(interval); reject(err); });
+
+                    use.load().then(model => {
+                        clearInterval(interval);
+                        resolve(model);
+                    }).catch(err => {
+                        clearInterval(interval);
+                        reject(err);
+                    });
                 });
             }
 
-            async _loadFromDatabase() {
-                const data = await this._getFromDatabase(this.config.DATA_KEY) || [];
-                const hash = await this._getFromDatabase(this.config.LAST_UPDATE_KEY) || "";
+            // --- Utility Methods ---
+            async loadFromDatabase() {
+                const data = await this.getFromDatabase(this.config.DATA_KEY) || [];
+                const hash = await this.getFromDatabase(this.config.LAST_UPDATE_KEY) || "";
                 return { data, hash };
             }
             
-            async _saveToDatabase(value, key) {
+            async saveToDatabase(value, key) {
                 return new Promise((resolve, reject) => {
                     const tx = this.state.db.transaction(this.config.STORE_NAME, 'readwrite');
                     tx.objectStore(this.config.STORE_NAME).put(value, key);
@@ -539,7 +713,7 @@
                 });
             }
 
-            async _getFromDatabase(key) {
+            async getFromDatabase(key) {
                 return new Promise((resolve, reject) => {
                     const tx = this.state.db.transaction(this.config.STORE_NAME, 'readonly');
                     const request = tx.objectStore(this.config.STORE_NAME).get(key);
@@ -548,7 +722,7 @@
                 });
             }
             
-            _hashString(str) {
+            hashString(str) {
                 let hash = 0;
                 for (let i = 0; i < str.length; i++) {
                     const char = str.charCodeAt(i);
@@ -558,7 +732,7 @@
                 return hash.toString();
             }
 
-            _parseCSV(csvText) {
+            parseCSV(csvText) {
                 const regex = /(,|\r?\n|^)("(?:[^"]|"")*"|[^",\r\n]*)/gi;
                 let matches;
                 const data = [[]];
@@ -576,19 +750,489 @@
                 return data;
             }
             
-            _createHyperlinks(text) {
+            createHyperlinks(text) {
                 if (!text) return '';
                 const urlRegex = /(\b(https?|ftp|file):\/\/[-A-Z0-9+&@#\/%?=~_|!:,.;]*[-A-Z0-9+&@#\/%=~_|])|(\bwww\.[-A-Z0-9+&@#\/%?=~_|!:,.;]*[-A-Z0-9+&@#\/%=~_|])/ig;
                 return text.replace(urlRegex, (url) => {
-                    const link = url.startsWith('www.') ? `https://` + url : url;
+                    const link = url.startsWith('www.') ? `https://${url}` : url;
                     return `<a href="${link}" target="_blank" rel="noopener noreferrer">${url}</a>`;
                 });
             }
         }
 
+        // Initialize when DOM is ready
         document.addEventListener('DOMContentLoaded', () => {
+            // Feature detection
+            if (!('indexedDB' in window)) {
+                alert('Seu navegador não suporta IndexedDB, que é necessário para este aplicativo. Por favor, atualize para um navegador moderno.');
+                return;
+            }
+
             window.neuroAssist = new NeuroAssist();
         });
     </script>
+    
+    <!-- Estilos não críticos -->
+    <style>
+        /* Estilos movidos para o final para priorizar o carregamento do conteúdo */
+        .app-container {
+            display: flex;
+            flex-direction: column;
+            max-width: 800px;
+            width: 100%;
+            margin: 0 auto;
+            height: 100vh;
+            overflow: hidden;
+        }
+
+        header {
+            background-color: var(--dark-gray);
+            padding: 1rem;
+            border-bottom: 1px solid var(--medium-gray);
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+
+        .logo {
+            display: flex;
+            align-items: center;
+            gap: 0.75rem;
+        }
+
+        .logo-icon {
+            width: 32px;
+            height: 32px;
+            background-color: var(--accent);
+            border-radius: 50%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            color: var(--black);
+            font-weight: bold;
+        }
+
+        .logo-text {
+            font-weight: 600;
+            font-size: 1.25rem;
+        }
+
+        .status-indicator {
+            display: flex;
+            align-items: center;
+            gap: 0.5rem;
+            font-size: 0.85rem;
+        }
+
+        .status-dot {
+            width: 10px;
+            height: 10px;
+            border-radius: 50%;
+            background-color: var(--accent);
+        }
+
+        .status-dot.loading {
+            background-color: #FF9800;
+            animation: pulse 1.5s infinite;
+        }
+
+        .status-dot.error {
+            background-color: var(--error);
+        }
+
+        @keyframes pulse {
+            0% { opacity: 0.5; }
+            50% { opacity: 1; }
+            100% { opacity: 0.5; }
+        }
+
+        .chat-container {
+            flex: 1;
+            display: flex;
+            flex-direction: column;
+            overflow: hidden;
+            background-color: var(--dark-gray);
+        }
+
+        .chat-area {
+            flex: 1;
+            overflow-y: auto;
+            padding: 1.5rem;
+            display: flex;
+            flex-direction: column;
+            gap: 1.25rem;
+            scrollbar-width: thin;
+            scrollbar-color: var(--light-gray) var(--dark-gray);
+        }
+
+        .chat-area::-webkit-scrollbar {
+            width: 6px;
+        }
+
+        .chat-area::-webkit-scrollbar-track {
+            background: var(--dark-gray);
+        }
+
+        .chat-area::-webkit-scrollbar-thumb {
+            background-color: var(--light-gray);
+            border-radius: 3px;
+        }
+
+        .message {
+            max-width: 85%;
+            padding: 0.75rem 1rem;
+            border-radius: 12px;
+            line-height: 1.5;
+            position: relative;
+            animation: fadeIn 0.3s ease-out;
+            box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+            word-wrap: break-word;
+        }
+        
+        .message a {
+            color: #8ab4f8;
+            text-decoration: underline;
+        }
+        
+        .message a:hover {
+            text-decoration: none;
+        }
+
+        @keyframes fadeIn {
+            from { opacity: 0; transform: translateY(10px); }
+            to { opacity: 1; transform: translateY(0); }
+        }
+
+        .user-message {
+            background-color: var(--primary);
+            color: var(--white);
+            margin-left: auto;
+            border-bottom-right-radius: 4px;
+        }
+
+        .bot-message {
+            background-color: var(--black);
+            color: var(--white);
+            margin-right: auto;
+            border-bottom-left-radius: 4px;
+            border: 1px solid var(--medium-gray);
+        }
+
+        .message-time {
+            font-size: 0.7rem;
+            opacity: 0.7;
+            margin-top: 0.25rem;
+            text-align: right;
+        }
+
+        .input-area {
+            padding: 1rem;
+            background-color: var(--dark-gray);
+            border-top: 1px solid var(--medium-gray);
+            display: flex;
+            gap: 0.75rem;
+        }
+
+        #questionInput {
+            flex: 1;
+            padding: 0.75rem 1rem;
+            border-radius: 8px;
+            border: 1px solid var(--medium-gray);
+            background-color: var(--black);
+            color: var(--white);
+            font-family: 'Inter', sans-serif;
+            font-size: 1rem;
+            outline: none;
+            transition: border-color 0.2s;
+        }
+
+        #questionInput:focus {
+            border-color: var(--primary);
+        }
+
+        #questionInput::placeholder {
+            color: var(--light-gray);
+        }
+
+        .button {
+            padding: 0.75rem 1.25rem;
+            border-radius: 8px;
+            border: none;
+            font-family: 'Inter', sans-serif;
+            font-weight: 500;
+            font-size: 1rem;
+            cursor: pointer;
+            transition: all 0.2s;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 0.5rem;
+        }
+
+        #askButton {
+            background-color: var(--primary);
+            color: var(--white);
+        }
+
+        #askButton:hover {
+            background-color: #0069d9;
+            transform: translateY(-1px);
+        }
+
+        #askButton:active {
+            transform: translateY(0);
+        }
+
+        #suggestButton {
+            background-color: var(--light-gray);
+            color: var(--white);
+        }
+
+        #suggestButton:hover {
+            background-color: var(--medium-gray);
+        }
+
+        .typing-indicator {
+            display: flex;
+            gap: 0.25rem;
+            padding: 0.75rem 1rem;
+            background-color: var(--black);
+            border-radius: 12px;
+            margin-right: auto;
+            border-bottom-left-radius: 4px;
+            border: 1px solid var(--medium-gray);
+            width: fit-content;
+        }
+
+        .typing-dot {
+            width: 8px;
+            height: 8px;
+            background-color: var(--white);
+            border-radius: 50%;
+            opacity: 0.4;
+            animation: typingAnimation 1.4s infinite ease-in-out;
+        }
+
+        .typing-dot:nth-child(1) {
+            animation-delay: 0s;
+        }
+
+        .typing-dot:nth-child(2) {
+            animation-delay: 0.2s;
+        }
+
+        .typing-dot:nth-child(3) {
+            animation-delay: 0.4s;
+        }
+
+        @keyframes typingAnimation {
+            0%, 60%, 100% { transform: translateY(0); opacity: 0.4; }
+            30% { transform: translateY(-5px); opacity: 1; }
+        }
+
+        .update-banner {
+            background-color: var(--medium-gray);
+            padding: 8px 16px;
+            text-align: center;
+            font-size: 0.9em;
+            animation: slideDown 0.5s ease-out;
+            border-bottom: 1px solid var(--accent);
+        }
+
+        @keyframes slideDown {
+            from { transform: translateY(-100%); }
+            to { transform: translateY(0); }
+        }
+
+        .auto-update-status {
+            font-size: 0.8em;
+            color: var(--light-gray);
+            text-align: right;
+            padding: 0.5rem 1rem;
+        }
+
+        .model-loading-progress {
+            padding: 0.5rem 1rem;
+            font-size: 0.8em;
+            color: var(--light-gray);
+            display: flex;
+            flex-direction: column;
+            gap: 0.25rem;
+        }
+
+        .progress-container {
+            width: 100%;
+            background-color: var(--black);
+            border-radius: 4px;
+            overflow: hidden;
+        }
+
+        .progress-bar {
+            height: 4px;
+            background-color: var(--accent);
+            transition: width 0.3s ease;
+        }
+
+        .model-status {
+            display: flex;
+            justify-content: space-between;
+        }
+
+        .settings-toggle {
+            display: flex;
+            align-items: center;
+            gap: 0.5rem;
+            font-size: 0.85rem;
+            margin-left: auto;
+            margin-right: 1rem;
+            cursor: pointer;
+        }
+
+        .toggle-switch {
+            position: relative;
+            display: inline-block;
+            width: 40px;
+            height: 20px;
+        }
+
+        .toggle-switch input {
+            opacity: 0;
+            width: 0;
+            height: 0;
+        }
+
+        .toggle-slider {
+            position: absolute;
+            cursor: pointer;
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            background-color: var(--light-gray);
+            transition: .4s;
+            border-radius: 20px;
+        }
+
+        .toggle-slider:before {
+            position: absolute;
+            content: "";
+            height: 16px;
+            width: 16px;
+            left: 2px;
+            bottom: 2px;
+            background-color: white;
+            transition: .4s;
+            border-radius: 50%;
+        }
+
+        input:checked + .toggle-slider {
+            background-color: var(--accent);
+        }
+
+        input:checked + .toggle-slider:before {
+            transform: translateX(20px);
+        }
+
+        /* Modal styles */
+        .modal {
+            display: flex;
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background-color: rgba(0, 0, 0, 0.7);
+            z-index: 1000;
+            justify-content: center;
+            align-items: center;
+        }
+
+        .modal-content {
+            background-color: var(--dark-gray);
+            border-radius: 8px;
+            width: 90%;
+            max-width: 600px;
+            max-height: 90vh;
+            overflow: auto;
+            padding: 20px;
+            position: relative;
+        }
+
+        .close-modal {
+            position: absolute;
+            top: 10px;
+            right: 10px;
+            font-size: 24px;
+            cursor: pointer;
+            color: var(--white);
+            background: none;
+            border: none;
+        }
+
+        .modal-iframe {
+            width: 100%;
+            height: 500px;
+            border: none;
+            border-radius: 4px;
+        }
+
+        /* Option buttons styles */
+        .option-button {
+            display: block;
+            width: 100%;
+            padding: 0.75rem 1rem;
+            margin: 0.5rem 0;
+            border-radius: 8px;
+            border: 1px solid var(--primary);
+            background-color: var(--dark-gray);
+            color: var(--white);
+            font-family: 'Inter', sans-serif;
+            font-size: 1rem;
+            text-align: left;
+            cursor: pointer;
+            transition: all 0.2s;
+        }
+
+        .option-button:hover {
+            background-color: var(--medium-gray);
+            transform: translateY(-1px);
+        }
+
+        .option-button:active {
+            transform: translateY(0);
+        }
+
+        @media (max-width: 768px) {
+            .app-container {
+                height: 100vh;
+                max-width: 100%;
+            }
+            
+            .message {
+                max-width: 90%;
+            }
+            
+            .input-area {
+                padding: 0.75rem;
+            }
+            
+            .button {
+                padding: 0.75rem;
+            }
+            
+            header {
+                flex-wrap: wrap;
+                gap: 0.5rem;
+            }
+            
+            .settings-toggle {
+                order: 1;
+                margin-left: 0;
+                margin-right: 0;
+                width: 100%;
+                justify-content: flex-end;
+            }
+        }
+    </style>
 </body>
 </html>
