@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>NeuroAssist - Assistente Inteligente (v2.2 Corrigido)</title>
+    <title>NeuroAssist - Assistente Inteligente (v2.3 Estável)</title>
     <!-- Dependências -->
     <script src="https://cdn.jsdelivr.net/npm/fuse.js@6.6.2"></script>
     <script src="https://cdn.jsdelivr.net/npm/@tensorflow/tfjs@3.18.0"></script>
@@ -21,466 +21,68 @@
             --primary: #007BFF;
             --error: #F44336;
         }
-
-        * {
-            box-sizing: border-box;
-            margin: 0;
-            padding: 0;
-        }
-
-        body {
-            font-family: 'Inter', sans-serif;
-            background-color: var(--black);
-            color: var(--white);
-            line-height: 1.6;
-            display: flex;
-            flex-direction: column;
-            min-height: 100vh;
-        }
-
-        .app-container {
-            display: flex;
-            flex-direction: column;
-            max-width: 800px;
-            width: 100%;
-            margin: 0 auto;
-            height: 100vh;
-            overflow: hidden;
-        }
-
-        header {
-            background-color: var(--dark-gray);
-            padding: 1rem;
-            border-bottom: 1px solid var(--medium-gray);
-            display: flex;
-            justify-content: space-between;
-            align-items: center;
-        }
-
-        .logo {
-            display: flex;
-            align-items: center;
-            gap: 0.75rem;
-        }
-
-        .logo-icon {
-            width: 32px;
-            height: 32px;
-            background-color: var(--accent);
-            border-radius: 50%;
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            color: var(--black);
-            font-weight: bold;
-        }
-
-        .logo-text {
-            font-weight: 600;
-            font-size: 1.25rem;
-        }
-
-        .status-indicator {
-            display: flex;
-            align-items: center;
-            gap: 0.5rem;
-            font-size: 0.85rem;
-        }
-
-        .status-dot {
-            width: 10px;
-            height: 10px;
-            border-radius: 50%;
-            background-color: var(--accent);
-        }
-
-        .status-dot.loading {
-            background-color: #FF9800;
-            animation: pulse 1.5s infinite;
-        }
-
-        .status-dot.error {
-            background-color: var(--error);
-        }
-
-        @keyframes pulse {
-            0% { opacity: 0.5; }
-            50% { opacity: 1; }
-            100% { opacity: 0.5; }
-        }
-
-        .chat-container {
-            flex: 1;
-            display: flex;
-            flex-direction: column;
-            overflow: hidden;
-            background-color: var(--dark-gray);
-        }
-
-        .chat-area {
-            flex: 1;
-            overflow-y: auto;
-            padding: 1.5rem;
-            display: flex;
-            flex-direction: column;
-            gap: 1.25rem;
-            scrollbar-width: thin;
-            scrollbar-color: var(--light-gray) var(--dark-gray);
-        }
-
-        .chat-area::-webkit-scrollbar {
-            width: 6px;
-        }
-
-        .chat-area::-webkit-scrollbar-track {
-            background: var(--dark-gray);
-        }
-
-        .chat-area::-webkit-scrollbar-thumb {
-            background-color: var(--light-gray);
-            border-radius: 3px;
-        }
-
-        .message {
-            max-width: 85%;
-            padding: 0.75rem 1rem;
-            border-radius: 12px;
-            line-height: 1.5;
-            position: relative;
-            animation: fadeIn 0.3s ease-out;
-            box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
-            word-wrap: break-word;
-        }
-        
-        .message a {
-            color: #8ab4f8;
-            text-decoration: underline;
-        }
-        
-        .message a:hover {
-            text-decoration: none;
-        }
-
-        @keyframes fadeIn {
-            from { opacity: 0; transform: translateY(10px); }
-            to { opacity: 1; transform: translateY(0); }
-        }
-
-        .user-message {
-            background-color: var(--primary);
-            color: var(--white);
-            margin-left: auto;
-            border-bottom-right-radius: 4px;
-        }
-
-        .bot-message {
-            background-color: var(--black);
-            color: var(--white);
-            margin-right: auto;
-            border-bottom-left-radius: 4px;
-            border: 1px solid var(--medium-gray);
-        }
-
-        .message-time {
-            font-size: 0.7rem;
-            opacity: 0.7;
-            margin-top: 0.25rem;
-            text-align: right;
-        }
-
-        .input-area {
-            padding: 1rem;
-            background-color: var(--dark-gray);
-            border-top: 1px solid var(--medium-gray);
-            display: flex;
-            gap: 0.75rem;
-        }
-
-        #questionInput {
-            flex: 1;
-            padding: 0.75rem 1rem;
-            border-radius: 8px;
-            border: 1px solid var(--medium-gray);
-            background-color: var(--black);
-            color: var(--white);
-            font-family: 'Inter', sans-serif;
-            font-size: 1rem;
-            outline: none;
-            transition: border-color 0.2s;
-        }
-
-        #questionInput:focus {
-            border-color: var(--primary);
-        }
-
-        #questionInput::placeholder {
-            color: var(--light-gray);
-        }
-
-        .button {
-            padding: 0.75rem 1.25rem;
-            border-radius: 8px;
-            border: none;
-            font-family: 'Inter', sans-serif;
-            font-weight: 500;
-            font-size: 1rem;
-            cursor: pointer;
-            transition: all 0.2s;
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            gap: 0.5rem;
-        }
-
-        #askButton {
-            background-color: var(--primary);
-            color: var(--white);
-        }
-
-        #askButton:hover {
-            background-color: #0069d9;
-            transform: translateY(-1px);
-        }
-
-        #askButton:active {
-            transform: translateY(0);
-        }
-
-        #suggestButton {
-            background-color: var(--light-gray);
-            color: var(--white);
-        }
-
-        #suggestButton:hover {
-            background-color: var(--medium-gray);
-        }
-
-        .typing-indicator {
-            display: flex;
-            gap: 0.25rem;
-            padding: 0.75rem 1rem;
-            background-color: var(--black);
-            border-radius: 12px;
-            margin-right: auto;
-            border-bottom-left-radius: 4px;
-            border: 1px solid var(--medium-gray);
-            width: fit-content;
-        }
-
-        .typing-dot {
-            width: 8px;
-            height: 8px;
-            background-color: var(--white);
-            border-radius: 50%;
-            opacity: 0.4;
-            animation: typingAnimation 1.4s infinite ease-in-out;
-        }
-
-        .typing-dot:nth-child(1) {
-            animation-delay: 0s;
-        }
-
-        .typing-dot:nth-child(2) {
-            animation-delay: 0.2s;
-        }
-
-        .typing-dot:nth-child(3) {
-            animation-delay: 0.4s;
-        }
-
-        @keyframes typingAnimation {
-            0%, 60%, 100% { transform: translateY(0); opacity: 0.4; }
-            30% { transform: translateY(-5px); opacity: 1; }
-        }
-
-        .update-banner {
-            background-color: var(--medium-gray);
-            padding: 8px 16px;
-            text-align: center;
-            font-size: 0.9em;
-            animation: slideDown 0.5s ease-out;
-            border-bottom: 1px solid var(--accent);
-        }
-
-        @keyframes slideDown {
-            from { transform: translateY(-100%); }
-            to { transform: translateY(0); }
-        }
-
-        .auto-update-status {
-            font-size: 0.8em;
-            color: var(--light-gray);
-            text-align: right;
-            padding: 0.5rem 1rem;
-        }
-
-        .model-loading-progress {
-            padding: 0.5rem 1rem;
-            font-size: 0.8em;
-            color: var(--light-gray);
-            display: flex;
-            flex-direction: column;
-            gap: 0.25rem;
-        }
-
-        .progress-container {
-            width: 100%;
-            background-color: var(--black);
-            border-radius: 4px;
-            overflow: hidden;
-        }
-
-        .progress-bar {
-            height: 4px;
-            background-color: var(--accent);
-            transition: width 0.3s ease;
-        }
-
-        .model-status {
-            display: flex;
-            justify-content: space-between;
-        }
-
-        .settings-toggle {
-            display: flex;
-            align-items: center;
-            gap: 0.5rem;
-            font-size: 0.85rem;
-            margin-left: auto;
-            margin-right: 1rem;
-            cursor: pointer;
-        }
-
-        .toggle-switch {
-            position: relative;
-            display: inline-block;
-            width: 40px;
-            height: 20px;
-        }
-
-        .toggle-switch input {
-            opacity: 0;
-            width: 0;
-            height: 0;
-        }
-
-        .toggle-slider {
-            position: absolute;
-            cursor: pointer;
-            top: 0;
-            left: 0;
-            right: 0;
-            bottom: 0;
-            background-color: var(--light-gray);
-            transition: .4s;
-            border-radius: 20px;
-        }
-
-        .toggle-slider:before {
-            position: absolute;
-            content: "";
-            height: 16px;
-            width: 16px;
-            left: 2px;
-            bottom: 2px;
-            background-color: white;
-            transition: .4s;
-            border-radius: 50%;
-        }
-
-        input:checked + .toggle-slider {
-            background-color: var(--accent);
-        }
-
-        input:checked + .toggle-slider:before {
-            transform: translateX(20px);
-        }
-
-        /* Modal styles */
-        .modal {
-            display: none;
-            position: fixed;
-            top: 0;
-            left: 0;
-            width: 100%;
-            height: 100%;
-            background-color: rgba(0, 0, 0, 0.7);
-            z-index: 1000;
-            justify-content: center;
-            align-items: center;
-        }
-
-        .modal-content {
-            background-color: var(--dark-gray);
-            border-radius: 8px;
-            width: 90%;
-            max-width: 600px;
-            max-height: 90vh;
-            overflow: auto;
-            padding: 20px;
-            position: relative;
-        }
-
-        .close-modal {
-            position: absolute;
-            top: 10px;
-            right: 10px;
-            font-size: 24px;
-            cursor: pointer;
-            color: var(--white);
-        }
-
-        .modal-iframe {
-            width: 100%;
-            height: 500px;
-            border: none;
-            border-radius: 4px;
-        }
-
-        /* Option buttons styles */
-        .option-button {
-            display: block;
-            width: 100%;
-            padding: 0.75rem 1rem;
-            margin: 0.5rem 0;
-            border-radius: 8px;
-            border: 1px solid var(--primary);
-            background-color: var(--dark-gray);
-            color: var(--white);
-            font-family: 'Inter', sans-serif;
-            font-size: 1rem;
-            text-align: left;
-            cursor: pointer;
-            transition: all 0.2s;
-        }
-
-        .option-button:hover {
-            background-color: var(--medium-gray);
-            transform: translateY(-1px);
-        }
-
-        .option-button:active {
-            transform: translateY(0);
-        }
-
-        @media (max-width: 768px) {
-            .app-container {
-                height: 100vh;
-                max-width: 100%;
-            }
-            
-            .message {
-                max-width: 90%;
-            }
-            
-            .input-area {
-                padding: 0.75rem;
-            }
-            
-            .button {
-                padding: 0.75rem;
-            }
-        }
+        * { box-sizing: border-box; margin: 0; padding: 0; }
+        body { font-family: 'Inter', sans-serif; background-color: var(--black); color: var(--white); line-height: 1.6; display: flex; flex-direction: column; min-height: 100vh; }
+        .app-container { display: flex; flex-direction: column; max-width: 800px; width: 100%; margin: 0 auto; height: 100vh; overflow: hidden; }
+        header { background-color: var(--dark-gray); padding: 1rem; border-bottom: 1px solid var(--medium-gray); display: flex; justify-content: space-between; align-items: center; }
+        .logo { display: flex; align-items: center; gap: 0.75rem; }
+        .logo-icon { width: 32px; height: 32px; background-color: var(--accent); border-radius: 50%; display: flex; align-items: center; justify-content: center; color: var(--black); font-weight: bold; }
+        .logo-text { font-weight: 600; font-size: 1.25rem; }
+        .status-indicator { display: flex; align-items: center; gap: 0.5rem; font-size: 0.85rem; }
+        .status-dot { width: 10px; height: 10px; border-radius: 50%; background-color: var(--accent); }
+        .status-dot.loading { background-color: #FF9800; animation: pulse 1.5s infinite; }
+        .status-dot.error { background-color: var(--error); }
+        @keyframes pulse { 0% { opacity: 0.5; } 50% { opacity: 1; } 100% { opacity: 0.5; } }
+        .chat-container { flex: 1; display: flex; flex-direction: column; overflow: hidden; background-color: var(--dark-gray); }
+        .chat-area { flex: 1; overflow-y: auto; padding: 1.5rem; display: flex; flex-direction: column; gap: 1.25rem; scrollbar-width: thin; scrollbar-color: var(--light-gray) var(--dark-gray); }
+        .chat-area::-webkit-scrollbar { width: 6px; }
+        .chat-area::-webkit-scrollbar-track { background: var(--dark-gray); }
+        .chat-area::-webkit-scrollbar-thumb { background-color: var(--light-gray); border-radius: 3px; }
+        .message { max-width: 85%; padding: 0.75rem 1rem; border-radius: 12px; line-height: 1.5; position: relative; animation: fadeIn 0.3s ease-out; box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1); word-wrap: break-word; }
+        .message a { color: #8ab4f8; text-decoration: underline; }
+        .message a:hover { text-decoration: none; }
+        @keyframes fadeIn { from { opacity: 0; transform: translateY(10px); } to { opacity: 1; transform: translateY(0); } }
+        .user-message { background-color: var(--primary); color: var(--white); margin-left: auto; border-bottom-right-radius: 4px; }
+        .bot-message { background-color: var(--black); color: var(--white); margin-right: auto; border-bottom-left-radius: 4px; border: 1px solid var(--medium-gray); }
+        .message-time { font-size: 0.7rem; opacity: 0.7; margin-top: 0.25rem; text-align: right; }
+        .input-area { padding: 1rem; background-color: var(--dark-gray); border-top: 1px solid var(--medium-gray); display: flex; gap: 0.75rem; }
+        #questionInput { flex: 1; padding: 0.75rem 1rem; border-radius: 8px; border: 1px solid var(--medium-gray); background-color: var(--black); color: var(--white); font-family: 'Inter', sans-serif; font-size: 1rem; outline: none; transition: border-color 0.2s; }
+        #questionInput:focus { border-color: var(--primary); }
+        #questionInput::placeholder { color: var(--light-gray); }
+        .button { padding: 0.75rem 1.25rem; border-radius: 8px; border: none; font-family: 'Inter', sans-serif; font-weight: 500; font-size: 1rem; cursor: pointer; transition: all 0.2s; display: flex; align-items: center; justify-content: center; gap: 0.5rem; }
+        #askButton { background-color: var(--primary); color: var(--white); }
+        #askButton:hover { background-color: #0069d9; transform: translateY(-1px); }
+        #askButton:active { transform: translateY(0); }
+        #suggestButton { background-color: var(--light-gray); color: var(--white); }
+        #suggestButton:hover { background-color: var(--medium-gray); }
+        .typing-indicator { display: flex; gap: 0.25rem; padding: 0.75rem 1rem; background-color: var(--black); border-radius: 12px; margin-right: auto; border-bottom-left-radius: 4px; border: 1px solid var(--medium-gray); width: fit-content; }
+        .typing-dot { width: 8px; height: 8px; background-color: var(--white); border-radius: 50%; opacity: 0.4; animation: typingAnimation 1.4s infinite ease-in-out; }
+        .typing-dot:nth-child(1) { animation-delay: 0s; }
+        .typing-dot:nth-child(2) { animation-delay: 0.2s; }
+        .typing-dot:nth-child(3) { animation-delay: 0.4s; }
+        @keyframes typingAnimation { 0%, 60%, 100% { transform: translateY(0); opacity: 0.4; } 30% { transform: translateY(-5px); opacity: 1; } }
+        .update-banner { background-color: var(--medium-gray); padding: 8px 16px; text-align: center; font-size: 0.9em; animation: slideDown 0.5s ease-out; border-bottom: 1px solid var(--accent); }
+        @keyframes slideDown { from { transform: translateY(-100%); } to { transform: translateY(0); } }
+        .auto-update-status { font-size: 0.8em; color: var(--light-gray); text-align: right; padding: 0.5rem 1rem; }
+        .model-loading-progress { padding: 0.5rem 1rem; font-size: 0.8em; color: var(--light-gray); display: flex; flex-direction: column; gap: 0.25rem; }
+        .progress-container { width: 100%; background-color: var(--black); border-radius: 4px; overflow: hidden; }
+        .progress-bar { height: 4px; background-color: var(--accent); transition: width 0.3s ease; }
+        .model-status { display: flex; justify-content: space-between; }
+        .settings-toggle { display: flex; align-items: center; gap: 0.5rem; font-size: 0.85rem; margin-left: auto; margin-right: 1rem; cursor: pointer; }
+        .toggle-switch { position: relative; display: inline-block; width: 40px; height: 20px; }
+        .toggle-switch input { opacity: 0; width: 0; height: 0; }
+        .toggle-slider { position: absolute; cursor: pointer; top: 0; left: 0; right: 0; bottom: 0; background-color: var(--light-gray); transition: .4s; border-radius: 20px; }
+        .toggle-slider:before { position: absolute; content: ""; height: 16px; width: 16px; left: 2px; bottom: 2px; background-color: white; transition: .4s; border-radius: 50%; }
+        input:checked + .toggle-slider { background-color: var(--accent); }
+        input:checked + .toggle-slider:before { transform: translateX(20px); }
+        .modal { display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%; background-color: rgba(0, 0, 0, 0.7); z-index: 1000; justify-content: center; align-items: center; }
+        .modal-content { background-color: var(--dark-gray); border-radius: 8px; width: 90%; max-width: 600px; max-height: 90vh; overflow: auto; padding: 20px; position: relative; }
+        .close-modal { position: absolute; top: 10px; right: 10px; font-size: 24px; cursor: pointer; color: var(--white); }
+        .modal-iframe { width: 100%; height: 500px; border: none; border-radius: 4px; }
+        .option-button { display: block; width: 100%; padding: 0.75rem 1rem; margin: 0.5rem 0; border-radius: 8px; border: 1px solid var(--primary); background-color: var(--dark-gray); color: var(--white); font-family: 'Inter', sans-serif; font-size: 1rem; text-align: left; cursor: pointer; transition: all 0.2s; }
+        .option-button:hover { background-color: var(--medium-gray); transform: translateY(-1px); }
+        .option-button:active { transform: translateY(0); }
+        @media (max-width: 768px) { .app-container { height: 100vh; max-width: 100%; } .message { max-width: 90%; } .input-area { padding: 0.75rem; } .button { padding: 0.75rem; } }
     </style>
 </head>
 <body>
@@ -508,24 +110,14 @@
         </header>
 
         <div class="chat-container">
-            <div class="chat-area" id="chatArea">
-                <!-- Mensagens aparecerão aqui -->
-            </div>
-
+            <div class="chat-area" id="chatArea"></div>
             <div class="input-area">
                 <input type="text" id="questionInput" placeholder="Digite sua mensagem ou '/ajuda'" autocomplete="off">
                 <button id="suggestButton" class="button" title="Sugerir perguntas e respostas">
-                    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
-                        <path d="M12 22C17.5228 22 22 17.5228 22 12C22 6.47715 17.5228 2 12 2C6.47715 2 2 6.47715 2 12C2 17.5228 6.47715 22 12 22Z" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
-                        <path d="M12 16V12" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
-                        <path d="M12 8H12.01" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
-                    </svg>
+                    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg"><path d="M12 22C17.5228 22 22 17.5228 22 12C22 6.47715 17.5228 2 12 2C6.47715 2 2 6.47715 2 12C2 17.5228 6.47715 22 12 22Z" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/><path d="M12 16V12" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/><path d="M12 8H12.01" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>
                 </button>
                 <button id="askButton" class="button">
-                    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
-                        <path d="M22 2L11 13" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
-                        <path d="M22 2L15 22L11 13L2 9L22 2Z" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
-                    </svg>
+                    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg"><path d="M22 2L11 13" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/><path d="M22 2L15 22L11 13L2 9L22 2Z" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>
                 </button>
             </div>
             <div id="modelLoadingProgress" class="model-loading-progress" style="display: none;">
@@ -533,15 +125,12 @@
                     <span id="modelStatusText">Carregando modelo avançado...</span>
                     <span id="modelProgressText">0%</span>
                 </div>
-                <div class="progress-container">
-                    <div id="modelProgressBar" class="progress-bar" style="width: 0%"></div>
-                </div>
+                <div class="progress-container"><div id="modelProgressBar" class="progress-bar" style="width: 0%"></div></div>
             </div>
             <div id="autoUpdateStatus" class="auto-update-status"></div>
         </div>
     </div>
 
-    <!-- Modal para sugestões -->
     <div id="suggestionModal" class="modal">
         <div class="modal-content">
             <span class="close-modal">×</span>
@@ -707,6 +296,7 @@
                 });
             }
             
+            // *** FUNÇÃO CENTRAL CORRIGIDA ***
             async _handleQuestion() {
                 const question = this.elements.questionInput.value.trim();
                 if (!question) return;
@@ -718,31 +308,42 @@
                 }
                 this._showTypingIndicator();
                 try {
-                    let answerText = null;
-                    let answerOptions = [];
+                    // Tenta encontrar a melhor resposta usando o Modo Avançado, se ativo
                     if (this.state.isAdvancedMode && this.state.isModelLoaded) {
                         const embeddingMatch = await this._findBestMatchWithEmbedding(question);
-                        if (embeddingMatch) { answerText = embeddingMatch.item.answer; }
-                    }
-                    if (!answerText) {
-                        if (!this.state.fuse) {
-                            answerText = "A base de conhecimento não está pronta. Tente novamente em alguns segundos.";
-                        } else {
-                            const results = this.state.fuse.search(question);
-                            if (results.length > 0 && results[0].score < this.config.FUSE_THRESHOLD) {
-                                answerText = results[0].item.answer;
-                            } else if (results.length > 0) {
-                                answerText = "Não tenho certeza, mas talvez uma destas opções ajude:";
-                                answerOptions = results.slice(0, 3);
-                            } else {
-                                answerText = "Desculpe, não encontrei uma resposta para isso. Você pode tentar reformular a pergunta ou usar o botão de sugestão para nos ajudar a melhorar!";
-                            }
+                        if (embeddingMatch) {
+                            setTimeout(() => this._addBotMessage(embeddingMatch.item.answer), 800);
+                            return;
                         }
                     }
-                    setTimeout(() => { this._addBotMessage(answerText, answerOptions); }, 800);
+                    
+                    // Se não, usa a busca textual (Fuse.js)
+                    if (!this.state.fuse) {
+                         setTimeout(() => this._addBotMessage("A base de conhecimento não está pronta."), 800);
+                        return;
+                    }
+                    
+                    const results = this.state.fuse.search(question);
+                    
+                    // Se a correspondência for muito boa, responde diretamente
+                    if (results.length > 0 && results[0].score < this.config.FUSE_THRESHOLD) {
+                        const bestMatch = results[0].item;
+                        // console.log("Match direto encontrado:", bestMatch); // Linha de debug, se necessário
+                        setTimeout(() => this._addBotMessage(bestMatch.answer), 800);
+                    
+                    // Se houver correspondências, mas não tão boas, oferece como sugestão
+                    } else if (results.length > 0) {
+                        const suggestions = results.slice(0, 3);
+                        setTimeout(() => this._addBotMessage("Não tenho certeza, mas talvez uma destas opções ajude:", suggestions), 800);
+                    
+                    // Se não encontrar nada
+                    } else {
+                        setTimeout(() => this._addBotMessage("Desculpe, não encontrei uma resposta para isso. Tente reformular a pergunta."), 800);
+                    }
+
                 } catch (error) {
                     console.error("Erro ao processar pergunta:", error);
-                    setTimeout(() => { this._addBotMessage("Ocorreu um erro ao processar sua pergunta. Por favor, tente novamente."); }, 800);
+                    setTimeout(() => this._addBotMessage("Ocorreu um erro ao processar sua pergunta."), 800);
                 }
             }
 
@@ -814,6 +415,7 @@
                 this.state.conversationHistory.push({ role: 'assistant', content: text });
             }
 
+            // *** FUNÇÃO DE EXIBIÇÃO CORRIGIDA ***
             _addMessage(text, sender, options = []) {
                 const messageDiv = document.createElement('div');
                 messageDiv.className = `message ${sender}-message`;
@@ -826,17 +428,15 @@
                     options.forEach(result => {
                         const button = document.createElement('button');
                         button.className = 'option-button';
-                        button.textContent = result.item.question;
+                        const suggestionItem = result.item;
+                        button.textContent = suggestionItem.question;
                         
-                        // *** AQUI ESTÁ A CORREÇÃO PRINCIPAL ***
                         button.onclick = () => {
-                            // 1. Adiciona a pergunta clicada ao chat, como se o usuário tivesse perguntado.
-                            this._addUserMessage(result.item.question);
-                            // 2. Responde imediatamente com a resposta correspondente.
+                            this._addUserMessage(suggestionItem.question);
                             this._showTypingIndicator();
                             setTimeout(() => {
-                                this._addBotMessage(result.item.answer);
-                            }, 400); // Pequeno delay para a UI parecer mais natural
+                                this._addBotMessage(suggestionItem.answer);
+                            }, 400);
                         };
                         messageDiv.appendChild(button);
                     });
