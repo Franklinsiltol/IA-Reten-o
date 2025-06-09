@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>NeuroAssist - Assistente Inteligente (v2.5 com Feedback Ativo)</title>
+    <title>NeuroAssist - Assistente Inteligente (v2.6 Corrigido)</title>
     <!-- Dependências -->
     <script src="https://cdn.jsdelivr.net/npm/fuse.js@6.6.2"></script>
     <script src="https://cdn.jsdelivr.net/npm/@tensorflow/tfjs@3.18.0"></script>
@@ -94,10 +94,8 @@
                 this.config = {
                     SHEET_ID: "1pgoYg76gutqLnOlsk3mN40HfzN9n-x_6oJQcfkZEBzY",
                     SHEET_NAME: "Retenção",
-                    // --- DADOS DO FORMULÁRIO INSERIDOS AQUI ---
                     FEEDBACK_FORM_URL: "https://docs.google.com/forms/d/e/1FAIpQLSdK1OUPcBGtMRdWQz4JhyeQBuet-wXbEQ4CyAX07f6rHSvdyA/formResponse", 
                     FEEDBACK_FORM_ENTRY_ID: "entry.2126538361", 
-                    
                     AUTO_UPDATE_INTERVAL: 600000, DB_NAME: "NeuroAssistDB", STORE_NAME: "KnowledgeBase", DATA_KEY: "qaData", LAST_UPDATE_KEY: "lastUpdate", MODEL_KEY: "useModel", SIMILARITY_THRESHOLD: 0.7, FUSE_THRESHOLD: 0.35,
                     USELESS_WORDS: ['como', 'ativar', 'atualizar', 'por que', 'onde', 'qual', 'quando', 'quem', 'o que', 'aonde']
                 };
@@ -239,29 +237,37 @@
                 this._removeTypingIndicator();
                 const messageDiv = document.createElement('div');
                 messageDiv.className = 'message bot-message';
+                
+                // CORREÇÃO CRÍTICA: Declarar a variável 'contentDiv' com 'const'.
                 const contentDiv = document.createElement('div');
                 contentDiv.innerHTML = `Não encontrei uma resposta para "<strong>${this._escapeHtml(question)}</strong>".<br>Gostaria de solicitar a inclusão desta pergunta?`;
                 messageDiv.appendChild(contentDiv);
+
                 const buttonContainer = document.createElement('div');
                 const yesButton = document.createElement('button');
                 yesButton.className = 'action-button yes'; yesButton.textContent = 'Sim, solicitar';
+                
+                // LÓGICA CORRIGIDA: Garante que a mensagem de "Obrigado" substitua o conteúdo do balão.
                 yesButton.onclick = () => {
                     this._submitUnansweredQuestion(question);
                     messageDiv.innerHTML = '✅ Obrigado! Sua pergunta foi enviada para análise.';
                 };
+
                 const noButton = document.createElement('button');
                 noButton.className = 'action-button no'; noButton.textContent = 'Não, obrigado';
+
+                // LÓGICA MELHORADA: Simplesmente remove o elemento.
                 noButton.onclick = () => {
-                    const parent = messageDiv.parentElement;
-                    if(parent) parent.removeChild(messageDiv);
+                    messageDiv.remove();
                 };
+
                 buttonContainer.appendChild(yesButton); buttonContainer.appendChild(noButton);
                 messageDiv.appendChild(buttonContainer);
                 this.elements.chatArea.appendChild(messageDiv); this.elements.chatArea.scrollTop = this.elements.chatArea.scrollHeight;
             }
             _submitUnansweredQuestion(question) {
                 if (!this.config.FEEDBACK_FORM_URL || !this.config.FEEDBACK_FORM_ENTRY_ID) {
-                    this._addBotMessage("A funcionalidade de feedback não está configurada. Preencha os dados no código.");
+                    this._addBotMessage("A funcionalidade de feedback não está configurada.");
                     return;
                 }
                 const formData = new FormData();
