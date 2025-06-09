@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>NeuroAssist - Assistente Inteligente (v2.3.1 com Feedback)</title>
+    <title>NeuroAssist - Assistente Inteligente (v2.3.2 com Feedback)</title>
     <!-- Dependências -->
     <script src="https://cdn.jsdelivr.net/npm/fuse.js@6.6.2"></script>
     <script src="https://cdn.jsdelivr.net/npm/@tensorflow/tfjs@3.18.0"></script>
@@ -91,9 +91,10 @@
     <script>
         class NeuroAssist {
             constructor() {
+                // --- CONFIGURAÇÃO ATUALIZADA ---
                 this.config = {
                     SHEET_ID: "1pgoYg76gutqLnOlsk3mN40HfzN9n-x_6oJQcfkZEBzY", SHEET_NAME: "Retenção",
-                    // --- DADOS DO FORMULÁRIO INSERIDOS AQUI ---
+                    // Dados do seu formulário para feedback
                     FEEDBACK_FORM_URL: "https://docs.google.com/forms/d/e/1FAIpQLSdK1OUPcBGtMRdWQz4JhyeQBuet-wXbEQ4CyAX07f6rHSvdyA/formResponse", 
                     FEEDBACK_FORM_ENTRY_ID: "entry.2126538361",
                     
@@ -175,23 +176,30 @@
             }
             _initSearchEngine() { this.state.fuse = new Fuse(this.state.qaData, { keys: ['question'], includeScore: true, threshold: 0.5, ignoreLocation: true, minMatchCharLength: 3 }); }
             
+            // --- FUNÇÃO _handleQuestion MODIFICADA ---
             async _handleQuestion() {
                 const question = this.elements.questionInput.value.trim();
                 if (!question) return;
                 this._addUserMessage(question);
                 this.elements.questionInput.value = '';
-                if (question.startsWith('/')) { this._handleCommand(question); return; }
+                if (question.startsWith('/')) {
+                    this._handleCommand(question);
+                    return;
+                }
                 this._showTypingIndicator();
+                
+                // O setTimeout agora engloba toda a lógica para consistência
                 setTimeout(async () => {
                     try {
-                        let answerText = null; let answerOptions = [];
+                        let answerText = null;
+                        let answerOptions = [];
                         if (this.state.isAdvancedMode && this.state.isModelLoaded) {
                             const embeddingMatch = await this._findBestMatchWithEmbedding(question);
                             if (embeddingMatch) { answerText = embeddingMatch.item.answer; }
                         }
                         if (!answerText) {
                             if (!this.state.fuse) {
-                                answerText = "A base de conhecimento não está pronta...";
+                                answerText = "A base de conhecimento não está pronta. Tente novamente em alguns segundos.";
                             } else {
                                 const results = this.state.fuse.search(question);
                                 if (results.length > 0 && results[0].score < this.config.FUSE_THRESHOLD) {
@@ -200,60 +208,78 @@
                                     answerText = "Não tenho certeza, mas talvez uma destas opções ajude:";
                                     answerOptions = results.slice(0, 3);
                                 } else {
-                                    // *** LÓGICA DE FEEDBACK ATIVADA AQUI ***
+                                    // AQUI ESTÁ A ÚNICA MUDANÇA: Chamar a função de feedback
                                     this._promptForSubmission(question);
-                                    return; // Para a execução para aguardar a resposta do usuário
+                                    return; // Importante: para a execução aqui para não enviar outra mensagem.
                                 }
                             }
                         }
+                        // Se uma resposta foi encontrada, envia para o chat
                         this._addBotMessage(answerText, answerOptions);
                     } catch (error) {
                         console.error("Erro ao processar pergunta:", error);
-                        this._addBotMessage("Ocorreu um erro ao processar sua pergunta.");
+                        this._addBotMessage("Ocorreu um erro ao processar sua pergunta. Por favor, tente novamente.");
                     }
                 }, 800);
             }
 
+            // --- INÍCIO DAS NOVAS FUNÇÕES DE FEEDBACK ---
             _promptForSubmission(question) {
                 this._removeTypingIndicator();
                 const messageDiv = document.createElement('div');
                 messageDiv.className = 'message bot-message';
+                
                 const contentDiv = document.createElement('div');
                 contentDiv.innerHTML = `Não encontrei uma resposta para "<strong>${this._escapeHtml(question)}</strong>".<br>Gostaria de solicitar a inclusão desta pergunta?`;
                 messageDiv.appendChild(contentDiv);
+
                 const buttonContainer = document.createElement('div');
                 const yesButton = document.createElement('button');
-                yesButton.className = 'action-button yes'; yesButton.textContent = 'Sim, solicitar';
+                yesButton.className = 'action-button yes'; 
+                yesButton.textContent = 'Sim, solicitar';
                 yesButton.onclick = () => {
                     this._submitUnansweredQuestion(question);
-                    messageDiv.innerHTML = '✅ Obrigado! Sua pergunta foi enviada para análise.';
+                    // Atualiza a própria mensagem para dar feedback ao usuário
+                    contentDiv.innerHTML = '✅ Obrigado! Sua pergunta foi enviada para análise.';
+                    buttonContainer.remove(); // Remove os botões
                 };
+
                 const noButton = document.createElement('button');
-                noButton.className = 'action-button no'; noButton.textContent = 'Não, obrigado';
+                noButton.className = 'action-button no'; 
+                noButton.textContent = 'Não, obrigado';
                 noButton.onclick = () => {
-                    messageDiv.remove();
+                    messageDiv.remove(); // Simplesmente remove a mensagem
                 };
-                buttonContainer.appendChild(yesButton); buttonContainer.appendChild(noButton);
+
+                buttonContainer.appendChild(yesButton); 
+                buttonContainer.appendChild(noButton);
                 messageDiv.appendChild(buttonContainer);
+                
                 this.elements.chatArea.appendChild(messageDiv);
                 this.elements.chatArea.scrollTop = this.elements.chatArea.scrollHeight;
             }
 
             _submitUnansweredQuestion(question) {
                 if (!this.config.FEEDBACK_FORM_URL || !this.config.FEEDBACK_FORM_ENTRY_ID) {
-                    this._addBotMessage("A funcionalidade de feedback não está configurada.");
+                    console.error("Feedback form URL ou Entry ID não configurado.");
                     return;
                 }
                 const formData = new FormData();
                 formData.append(this.config.FEEDBACK_FORM_ENTRY_ID, question);
-                fetch(this.config.FEEDBACK_FORM_URL, { method: 'POST', body: formData, mode: 'no-cors' })
-                    .catch(error => console.error('Erro na rede ao enviar feedback:', error));
+
+                fetch(this.config.FEEDBACK_FORM_URL, { 
+                    method: 'POST', 
+                    body: formData, 
+                    mode: 'no-cors' 
+                }).catch(error => console.error('Erro de rede ao enviar feedback:', error));
             }
             
             _escapeHtml(unsafe) {
+                if (!unsafe) return "";
                 return unsafe.replace(/&/g, "&").replace(/</g, "<").replace(/>/g, ">").replace(/"/g, """).replace(/'/g, "'");
             }
-            
+            // --- FIM DAS NOVAS FUNÇÕES DE FEEDBACK ---
+
             async _findBestMatchWithEmbedding(question) {
                 if (!this.state.isModelLoaded || !this.state.useModel) return null;
                 try {
