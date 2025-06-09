@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>NeuroAssist - Assistente Inteligente (v2.3 Corrigido)</title>
+    <title>NeuroAssist - Assistente Inteligente (v3.1 com Comando /add)</title>
     <!-- Dependências -->
     <script src="https://cdn.jsdelivr.net/npm/fuse.js@6.6.2"></script>
     <script src="https://cdn.jsdelivr.net/npm/@tensorflow/tfjs@3.18.0"></script>
@@ -12,14 +12,8 @@
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
     <style>
         :root {
-            --black: #121212;
-            --dark-gray: #1E1E1E;
-            --medium-gray: #2D2D2D;
-            --light-gray: #3A3A3A;
-            --white: #F5F5F5;
-            --accent: #4CAF50;
-            --primary: #007BFF;
-            --error: #F44336;
+            --black: #121212; --dark-gray: #1E1E1E; --medium-gray: #2D2D2D; --light-gray: #3A3A3A;
+            --white: #F5F5F5; --accent: #4CAF50; --primary: #007BFF; --error: #F44336;
         }
         * { box-sizing: border-box; margin: 0; padding: 0; }
         body { font-family: 'Inter', sans-serif; background-color: var(--black); color: var(--white); line-height: 1.6; display: flex; flex-direction: column; min-height: 100vh; }
@@ -97,64 +91,16 @@
     </style>
 </head>
 <body>
-    <div id="updateBanner" class="update-banner" style="display: none;">
-        Nova atualização disponível! <a href="#" id="refreshLink">Recarregar agora</a>
-    </div>
-    <div class="app-container">
-        <header>
-            <div class="logo">
-                <div class="logo-icon">N</div>
-                <div class="logo-text">NeuroAssist</div>
-            </div>
-            <div class="settings-toggle">
-                <label class="toggle-switch">
-                    <input type="checkbox" id="advancedModeToggle">
-                    <span class="toggle-slider"></span>
-                </label>
-                <span>Modo Avançado</span>
-            </div>
-            <div class="status-indicator">
-                <div class="status-dot loading"></div>
-                <span id="statusText">Conectando...</span>
-            </div>
-        </header>
-
-        <div class="chat-container">
-            <div class="chat-area" id="chatArea"></div>
-            <div class="input-area">
-                <input type="text" id="questionInput" placeholder="Digite sua mensagem ou '/ajuda'" autocomplete="off">
-                <button id="suggestButton" class="button" title="Sugerir perguntas e respostas">
-                    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg"><path d="M12 22C17.5228 22 22 17.5228 22 12C22 6.47715 17.5228 2 12 2C6.47715 2 2 6.47715 2 12C2 17.5228 6.47715 22 12 22Z" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/><path d="M12 16V12" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/><path d="M12 8H12.01" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>
-                </button>
-                <button id="askButton" class="button">
-                    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg"><path d="M22 2L11 13" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/><path d="M22 2L15 22L11 13L2 9L22 2Z" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>
-                </button>
-            </div>
-            <div id="modelLoadingProgress" class="model-loading-progress" style="display: none;">
-                <div class="model-status">
-                    <span id="modelStatusText">Carregando modelo avançado...</span>
-                    <span id="modelProgressText">0%</span>
-                </div>
-                <div class="progress-container">
-                    <div id="modelProgressBar" class="progress-bar" style="width: 0%"></div>
-                </div>
-            </div>
-            <div id="autoUpdateStatus" class="auto-update-status"></div>
-        </div>
-    </div>
-    <div id="suggestionModal" class="modal">
-        <div class="modal-content">
-            <span class="close-modal">×</span>
-            <iframe class="modal-iframe" id="suggestionForm" src="https://docs.google.com/forms/d/e/1FAIpQLSdK1OUPcBGtMRdWQz4JhyeQBuet-wXbEQ4CyAX07f6rHSvdyA/viewform?embedded=true" frameborder="0" marginheight="0" marginwidth="0">Carregando…</iframe>
-        </div>
-    </div>
+    <div id="updateBanner" class="update-banner" style="display: none;">Nova atualização disponível! <a href="#" id="refreshLink">Recarregar agora</a></div>
+    <div class="app-container"><header><div class="logo"><div class="logo-icon">N</div><div class="logo-text">NeuroAssist</div></div><div class="settings-toggle"><label class="toggle-switch"><input type="checkbox" id="advancedModeToggle"><span class="toggle-slider"></span></label><span>Modo Avançado</span></div><div class="status-indicator"><div class="status-dot loading"></div><span id="statusText">Conectando...</span></div></header><div class="chat-container"><div class="chat-area" id="chatArea"></div><div class="input-area"><input type="text" id="questionInput" placeholder="Digite sua mensagem ou '/ajuda'" autocomplete="off"><button id="suggestButton" class="button" title="Sugerir perguntas e respostas"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg"><path d="M12 22C17.5228 22 22 17.5228 22 12C22 6.47715 17.5228 2 12 2C6.47715 2 2 6.47715 2 12C2 17.5228 6.47715 22 12 22Z" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/><path d="M12 16V12" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/><path d="M12 8H12.01" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg></button><button id="askButton" class="button"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg"><path d="M22 2L11 13" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/><path d="M22 2L15 22L11 13L2 9L22 2Z" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg></button></div><div id="modelLoadingProgress" class="model-loading-progress" style="display: none;"><div class="model-status"><span id="modelStatusText">Carregando modelo avançado...</span><span id="modelProgressText">0%</span></div><div class="progress-container"><div id="modelProgressBar" class="progress-bar" style="width: 0%"></div></div></div><div id="autoUpdateStatus" class="auto-update-status"></div></div></div><div id="suggestionModal" class="modal"><div class="modal-content"><span class="close-modal">×</span><iframe class="modal-iframe" id="suggestionForm" src="https://docs.google.com/forms/d/e/1FAIpQLSdK1OUPcBGtMRdWQz4JhyeQBuet-wXbEQ4CyAX07f6rHSvdyA/viewform?embedded=true" frameborder="0" marginheight="0" marginwidth="0">Carregando…</iframe></div></div>
 
     <script>
         class NeuroAssist {
             constructor() {
                 this.config = { SHEET_ID: "1pgoYg76gutqLnOlsk3mN40HfzN9n-x_6oJQcfkZEBzY", SHEET_NAME: "Retenção", AUTO_UPDATE_INTERVAL: 600000, DB_NAME: "NeuroAssistDB", STORE_NAME: "KnowledgeBase", DATA_KEY: "qaData", LAST_UPDATE_KEY: "lastUpdate", MODEL_KEY: "useModel", SIMILARITY_THRESHOLD: 0.7, FUSE_THRESHOLD: 0.35 };
                 this.elements = { questionInput: document.getElementById('questionInput'), askButton: document.getElementById('askButton'), suggestButton: document.getElementById('suggestButton'), chatArea: document.getElementById('chatArea'), statusText: document.getElementById('statusText'), statusDot: document.querySelector('.status-dot'), autoUpdateStatus: document.getElementById('autoUpdateStatus'), updateBanner: document.getElementById('updateBanner'), refreshLink: document.getElementById('refreshLink'), modelLoadingProgress: document.getElementById('modelLoadingProgress'), modelStatusText: document.getElementById('modelStatusText'), modelProgressText: document.getElementById('modelProgressText'), modelProgressBar: document.getElementById('modelProgressBar'), advancedModeToggle: document.getElementById('advancedModeToggle'), suggestionModal: document.getElementById('suggestionModal'), closeModal: document.querySelector('.close-modal') };
-                this.state = { db: null, fuse: null, qaData: [], lastUpdateHash: "", autoUpdateIntervalId: null, useModel: null, isModelLoaded: false, isModelLoading: false, isAdvancedMode: false, conversationHistory: [], lastUnansweredQuestion: null };
+                // --- MUDANÇA 1: Adiciona o novo estado ---
+                this.state = { db: null, fuse: null, qaData: [], lastUpdateHash: "", autoUpdateIntervalId: null, useModel: null, isModelLoaded: false, isModelLoading: false, isAdvancedMode: false, conversationHistory: [], lastUnansweredQuestion: null, isAwaitingSuggestion: false };
                 this._init();
             }
             async _init() {
@@ -268,15 +214,30 @@
             _initSearchEngine() {
                 this.state.fuse = new Fuse(this.state.qaData, { keys: ['question'], includeScore: true, threshold: 0.5, ignoreLocation: true, minMatchCharLength: 3 });
             }
+            
             async _handleQuestion() {
                 const question = this.elements.questionInput.value.trim();
                 if (!question) return;
+
+                // --- MUDANÇA 2: Lógica para tratar o modo de sugestão ---
+                if (this.state.isAwaitingSuggestion) {
+                    this._addUserMessage(question);
+                    // A função de enviar já existe, só precisamos chamá-la.
+                    this._submitQuestionToForm(question, true); // O 'true' indica que foi uma sugestão explícita
+                    this.state.isAwaitingSuggestion = false;
+                    this.elements.questionInput.placeholder = "Digite sua mensagem ou '/ajuda'";
+                    this.elements.questionInput.value = '';
+                    return;
+                }
+                
                 this._addUserMessage(question);
                 this.elements.questionInput.value = '';
+
                 if (question.startsWith('/')) {
                     this._handleCommand(question);
                     return;
                 }
+                
                 this._showTypingIndicator();
                 try {
                     let answerText = null;
@@ -296,7 +257,6 @@
                                 answerText = "Não tenho certeza, mas talvez uma destas opções ajude:";
                                 answerOptions = results.slice(0, 3);
                             } else {
-                                // Armazena a pergunta não respondida para possível envio
                                 this.state.lastUnansweredQuestion = question;
                                 answerText = "Desculpe, não encontrei uma resposta para isso. Gostaria de adicionar esta pergunta à nossa base de conhecimento para que possamos responder no futuro?";
                             }
@@ -304,7 +264,6 @@
                     }
                     setTimeout(() => { 
                         this._addBotMessage(answerText, answerOptions); 
-                        // Se não encontrou resposta, mostra os botões de Sim/Não
                         if (answerText.includes("Gostaria de adicionar esta pergunta")) {
                             this._showAddQuestionButtons();
                         }
@@ -314,6 +273,7 @@
                     setTimeout(() => { this._addBotMessage("Ocorreu um erro ao processar sua pergunta. Por favor, tente novamente."); }, 800);
                 }
             }
+
             _showAddQuestionButtons() {
                 const messageDiv = document.querySelector('.message:last-child');
                 if (!messageDiv) return;
@@ -324,7 +284,11 @@
                 const yesButton = document.createElement('button');
                 yesButton.className = 'action-button yes';
                 yesButton.textContent = 'Sim';
-                yesButton.onclick = () => this._submitQuestionToForm();
+                yesButton.onclick = () => {
+                    this._submitQuestionToForm(this.state.lastUnansweredQuestion);
+                    // Remove os botões após o clique
+                    buttonsContainer.remove();
+                };
                 
                 const noButton = document.createElement('button');
                 noButton.className = 'action-button no';
@@ -338,12 +302,12 @@
                 buttonsContainer.appendChild(noButton);
                 messageDiv.appendChild(buttonsContainer);
             }
-            async _submitQuestionToForm() {
-                if (!this.state.lastUnansweredQuestion) return;
+            async _submitQuestionToForm(question, fromCommand = false) {
+                if (!question) return;
                 
                 const formUrl = 'https://docs.google.com/forms/d/e/1FAIpQLSdK1OUPcBGtMRdWQz4JhyeQBuet-wXbEQ4CyAX07f6rHSvdyA/formResponse';
                 const formData = new FormData();
-                formData.append('entry.2126538361', this.state.lastUnansweredQuestion);
+                formData.append('entry.2126538361', question);
                 
                 try {
                     await fetch(formUrl, {
@@ -352,10 +316,14 @@
                         body: formData
                     });
                     
-                    this._addBotMessage("Obrigado por contribuir! Sua pergunta foi enviada para nossa equipe e em breve será adicionada à base de conhecimento.");
+                    let confirmationMessage = fromCommand 
+                        ? "Obrigado! Sua sugestão foi enviada para análise." 
+                        : "Obrigado por contribuir! Sua pergunta foi enviada para nossa equipe.";
+                    this._addBotMessage(confirmationMessage);
+
                 } catch (error) {
                     console.error("Erro ao enviar pergunta:", error);
-                    this._addBotMessage("Houve um erro ao enviar sua pergunta. Você pode tentar novamente mais tarde ou usar o botão de sugestão no canto inferior direito.");
+                    this._addBotMessage("Houve um erro ao enviar sua pergunta. Você pode tentar novamente mais tarde.");
                 }
                 
                 this.state.lastUnansweredQuestion = null;
@@ -375,11 +343,13 @@
                     return null;
                 }
             }
+
+            // --- MUDANÇA 3: Adiciona o case para o novo comando ---
             _handleCommand(command) {
                 const cmd = command.toLowerCase().split(' ')[0];
                 switch (cmd) {
                     case '/ajuda':
-                        this._addBotMessage("Comandos disponíveis:\n`/ajuda` - Mostra esta mensagem.\n`/limpar` - Limpa a janela de chat.\n`/atualizar` - Força a busca por novas respostas.\n`/debug` - Verifica a base de dados.");
+                        this._addBotMessage("Comandos disponíveis:\n`/ajuda`\n`/limpar`\n`/atualizar`\n`/debug`\n`/add` ou `/sugerir`");
                         break;
                     case '/limpar':
                         this.elements.chatArea.innerHTML = '';
@@ -388,6 +358,13 @@
                     case '/atualizar':
                         this._addBotMessage("Iniciando verificação manual de atualizações...");
                         this._fetchAndUpdateData(true);
+                        break;
+                    case '/add':
+                    case '/sugerir':
+                        this.state.isAwaitingSuggestion = true;
+                        this._addBotMessage("Qual pergunta você gostaria de adicionar?");
+                        this.elements.questionInput.placeholder = "Digite aqui a pergunta para sugerir...";
+                        this.elements.questionInput.focus();
                         break;
                     case '/debug':
                         const headers = this.state.qaData.length > 0 ? Object.keys(this.state.qaData[0]) : ['Nenhum dado carregado'];
