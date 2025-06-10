@@ -1,0 +1,39 @@
+<!-- ========== CÓDIGO DE INTEGRAÇÃO NEUROASSIST ========== -->
+<div id="neuroassist-widget-container" style="position: fixed; z-index: 999999;"></div>
+<script>
+    (function() {
+        // 1. URL do seu chatbot hospedado no GitHub Pages
+        const chatbotUrl = "https://franklinsiltol.github.io/IA-Reten-o/";
+
+        // 2. Cria o iframe (a "janela mágica")
+        const iframe = document.createElement('iframe');
+        iframe.src = chatbotUrl;
+        iframe.style.position = 'fixed';
+        iframe.style.bottom = '0';
+        iframe.style.right = '0';
+        iframe.style.width = '100%';
+        iframe.style.height = '100%';
+        iframe.style.border = 'none';
+        iframe.style.zIndex = '999999';
+        iframe.style.backgroundColor = 'transparent';
+        // Permite que cliques "atravessem" o iframe quando o chat estiver fechado
+        iframe.style.pointerEvents = 'none'; 
+        
+        // 3. Adiciona o iframe à página
+        const container = document.getElementById('neuroassist-widget-container');
+        container.appendChild(iframe);
+
+        // 4. Lógica para permitir cliques no iframe somente quando o chat estiver aberto
+        window.addEventListener('message', function(event) {
+            // Verifica se a mensagem veio do iframe do chatbot
+            if (event.source === iframe.contentWindow) {
+                if (event.data === 'chat-opened') {
+                    iframe.style.pointerEvents = 'auto';
+                } else if (event.data === 'chat-closed') {
+                    iframe.style.pointerEvents = 'none';
+                }
+            }
+        });
+    })();
+</script>
+<!-- ========== FIM DO CÓDIGO DE INTEGRAÇÃO ========== -->
