@@ -1,0 +1,223 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>NeuroAssist - Assistente Inteligente</title>
+    <link rel="icon" type="image/png" href="https://lh3.googleusercontent.com/d/1fLb9cE9IgqCRNWzmGeQ_HNdsY4u8dNTl">
+    <script src="https://cdn.jsdelivr.net/npm/fuse.js@6.6.2"></script>
+    <script src="https://cdn.jsdelivr.net/npm/@tensorflow/tfjs@3.18.0"></script>
+    <script src="https://cdn.jsdelivr.net/npm/@tensorflow-models/universal-sentence-encoder@1.3.3"></script>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+    <style>
+        :root {
+            --background-main: #FFFFFF; --background-secondary: #F0F2F5; --text-primary: #111B21;
+            --text-secondary: #667781; --border-color: #E9EDEF; --primary: #007BFF;
+            --accent: #00A884; --white: #FFFFFF; --black: #000000; --error: #d93025;
+        }
+        * { box-sizing: border-box; margin: 0; padding: 0; }
+        body { font-family: 'Inter', sans-serif; background-color: transparent; /* O fundo deve ser transparente para o iframe */ }
+        .fab-container { position: fixed; bottom: 2rem; right: 2rem; z-index: 1000; }
+        .fab-button { width: 60px; height: 60px; border-radius: 50%; background-color: var(--primary); box-shadow: 0 4px 15px rgba(0, 123, 255, 0.4); display: flex; justify-content: center; align-items: center; cursor: pointer; transition: transform 0.3s ease, box-shadow 0.3s ease; }
+        .fab-button:hover { transform: scale(1.1); box-shadow: 0 6px 20px rgba(0, 123, 255, 0.5); }
+        .fab-icon { width: 32px; height: 32px; }
+        .app-container { position: fixed; bottom: 7rem; right: 2rem; display: flex; flex-direction: column; width: 90vw; max-width: 400px; height: 70vh; max-height: 600px; background-color: var(--background-main); border-radius: 16px; box-shadow: 0 10px 30px rgba(0, 0, 0, 0.15); border: 1px solid var(--border-color); overflow: hidden; z-index: 999; transform: translateY(20px) scale(0.95); opacity: 0; visibility: hidden; transition: all 0.3s cubic-bezier(0.165, 0.84, 0.44, 1); }
+        .app-container.open { transform: translateY(0) scale(1); opacity: 1; visibility: visible; }
+        header { background-color: var(--background-main); padding: 0.75rem 1rem; border-bottom: 1px solid var(--border-color); display: flex; justify-content: space-between; align-items: center; flex-shrink: 0; }
+        .header-left { display: flex; align-items: center; gap: 0.75rem; }
+        .logo-icon { width: 36px; height: 36px; border-radius: 50%; object-fit: cover; }
+        .logo-text { font-weight: 600; font-size: 1.1rem; color: var(--text-primary); }
+        .close-chat-btn { background: none; border: none; cursor: pointer; padding: 0.5rem; color: var(--text-secondary); }
+        .close-chat-btn:hover { color: var(--text-primary); }
+        .chat-container { flex: 1; display: flex; flex-direction: column; overflow: hidden; background-color: var(--background-main); }
+        .chat-area { flex: 1; overflow-y: auto; padding: 1rem; display: flex; flex-direction: column; gap: 0.75rem; }
+        .chat-area::-webkit-scrollbar { width: 6px; }
+        .chat-area::-webkit-scrollbar-track { background: transparent; }
+        .chat-area::-webkit-scrollbar-thumb { background-color: #ccc; border-radius: 3px; }
+        .message { max-width: 80%; padding: 0.6rem 1rem; border-radius: 18px; line-height: 1.5; position: relative; animation: fadeIn 0.4s ease-out; word-wrap: break-word; }
+        @keyframes fadeIn { from { opacity: 0; transform: translateY(10px); } to { opacity: 1; transform: translateY(0); } }
+        .user-message { background-color: var(--primary); color: var(--white); margin-left: auto; border-bottom-right-radius: 5px; }
+        .bot-message { background-color: var(--background-secondary); color: var(--text-primary); margin-right: auto; border-bottom-left-radius: 5px; }
+        .message a { color: var(--primary); font-weight: 500; }
+        .input-area-wrapper { background-color: var(--background-main); padding: 0.75rem 1rem; border-top: 1px solid var(--border-color); flex-shrink: 0; }
+        .input-area { display: flex; align-items: center; gap: 0.5rem; }
+        #questionInput { flex: 1; padding: 0.6rem 1rem; border-radius: 999px; border: 1px solid var(--border-color); background-color: var(--background-secondary); color: var(--text-primary); font-family: 'Inter', sans-serif; font-size: 0.9rem; outline: none; }
+        #questionInput:focus { border-color: var(--primary); }
+        #askButton { background-color: var(--primary); color: var(--white); width: 40px; height: 40px; border-radius: 50%; flex-shrink: 0; border: none; cursor: pointer; display: flex; align-items: center; justify-content: center; transition: background-color 0.2s; }
+        #askButton:hover { background-color: #0069d9; }
+        @media (max-width: 600px) {
+            .fab-container { bottom: 1rem; right: 1rem; }
+            .app-container { right: 1rem; bottom: 6rem; width: calc(100vw - 2rem); height: calc(100vh - 7rem); max-height: 85vh; }
+        }
+    </style>
+</head>
+<body>
+    <div class="app-container" id="app-container">
+        <header><div class="header-left"><img src="https://lh3.googleusercontent.com/d/1fLb9cE9IgqCRNWzmGeQ_HNdsY4u8dNTl" alt="Logo" class="logo-icon"><div class="logo-text">NeuroAssist</div></div><button class="close-chat-btn" id="close-chat-btn" title="Fechar"><svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="18" y1="6" x2="6" y2="18"></line><line x1="6" y1="6" x2="18" y2="18"></line></svg></button></header>
+        <div class="chat-container"><div class="chat-area" id="chatArea"></div><div class="input-area-wrapper"><div class="input-area"><input type="text" id="questionInput" placeholder="Digite sua mensagem..." autocomplete="off"><button id="askButton" title="Enviar"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg"><path d="M22 2L11 13" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/><path d="M22 2L15 22L11 13L2 9L22 2Z" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg></button></div></div></div>
+    </div>
+    <div class="fab-container"><div class="fab-button" id="fab-button"><img src="https://lh3.googleusercontent.com/d/1fLb9cE9IgqCRNWzmGeQ_HNdsY4u8dNTl" alt="Abrir Chat" class="fab-icon"></div></div>
+
+    <script>
+        // --- LÓGICA DO BOTÃO FLUTUANTE (COM COMUNICAÇÃO) ---
+        document.addEventListener('DOMContentLoaded', () => {
+            const fabButton = document.getElementById('fab-button');
+            const appContainer = document.getElementById('app-container');
+            const closeChatBtn = document.getElementById('close-chat-btn');
+            const questionInput = document.getElementById('questionInput');
+
+            const toggleChat = () => {
+                appContainer.classList.toggle('open');
+                if (appContainer.classList.contains('open')) {
+                    setTimeout(() => questionInput.focus(), 300); 
+                    // Avisa a página principal que o chat abriu
+                    window.parent.postMessage('chat-opened', '*');
+                } else {
+                    // Avisa a página principal que o chat fechou
+                    window.parent.postMessage('chat-closed', '*');
+                }
+            };
+
+            fabButton.addEventListener('click', toggleChat);
+            closeChatBtn.addEventListener('click', toggleChat);
+            
+            window.neuroAssist = new NeuroAssist();
+        });
+
+        // --- CÓDIGO FUNCIONAL DO BOT (PERMANECE O MESMO) ---
+        class NeuroAssist {
+            constructor() {
+                this.config = { SHEET_ID: "1pgoYg76gutqLnOlsk3mN40HfzN9n-x_6oJQcfkZEBzY", SHEET_NAME: "Retenção", AUTO_UPDATE_INTERVAL: 600000, DB_NAME: "NeuroAssistDB", STORE_NAME: "KnowledgeBase", DATA_KEY: "qaData", LAST_UPDATE_KEY: "lastUpdate", MODEL_KEY: "useModel", SIMILARITY_THRESHOLD: 0.7, FUSE_THRESHOLD: 0.35 };
+                this.elements = { questionInput: document.getElementById('questionInput'), askButton: document.getElementById('askButton'), chatArea: document.getElementById('chatArea'), };
+                this.state = { db: null, fuse: null, qaData: [], lastUpdateHash: "", autoUpdateIntervalId: null, useModel: null, isModelLoaded: false, isModelLoading: false, isAdvancedMode: false, conversationHistory: [], lastUnansweredQuestion: null, isAwaitingSuggestion: false };
+                this._init();
+            }
+            async _init() {
+                try {
+                    await this._initDatabase(); await this._loadInitialData(); this._setupEventListeners();
+                    this._startAutoUpdate(); await this._checkAdvancedModeStatus();
+                } catch (error) { console.error("Falha na inicialização crítica:", error); this._addBotMessage("Erro crítico ao inicializar."); }
+            }
+            async _initDatabase() {
+                return new Promise((resolve, reject) => {
+                    const request = indexedDB.open(this.config.DB_NAME, 3);
+                    request.onupgradeneeded = (e) => { const db = e.target.result; if (!db.objectStoreNames.contains(this.config.STORE_NAME)) { db.createObjectStore(this.config.STORE_NAME); } };
+                    request.onsuccess = (e) => { this.state.db = e.target.result; resolve(); };
+                    request.onerror = (e) => { console.error("Erro no IndexedDB:", e.target.error); reject(e.target.error); };
+                });
+            }
+            async _loadInitialData() {
+                try {
+                    const { data, hash } = await this._loadFromDatabase();
+                    if (data && data.length > 0) {
+                        this.state.qaData = data; this.state.lastUpdateHash = hash; this._initSearchEngine();
+                        this._addBotMessage("Olá! Sou o NeuroAssist. Como posso ajudar?");
+                    } else { await this._fetchAndUpdateData(); }
+                } catch (error) { console.error("Erro ao carregar dados iniciais:", error); await this._fetchAndUpdateData(); }
+            }
+            async _fetchSheetData() {
+                const url = `https://docs.google.com/spreadsheets/d/${this.config.SHEET_ID}/gviz/tq?tqx=out:csv&sheet=${encodeURIComponent(this.config.SHEET_NAME)}&t=${Date.now()}`;
+                try {
+                    const response = await fetch(url);
+                    if (!response.ok) throw new Error(`Erro HTTP: ${response.status}`);
+                    const csvText = await response.text();
+                    const currentHash = this._hashString(csvText);
+                    if (currentHash === this.state.lastUpdateHash) { return { updated: false }; }
+                    const parsedData = this._parseCSV(csvText);
+                    if (parsedData.length < 2) { throw new Error("CSV inválido ou vazio."); }
+                    const headers = parsedData[0].map(h => h.trim().toLowerCase());
+                    const questionIndex = headers.indexOf("pergunta"); const answerIndex = headers.indexOf("resposta");
+                    if (questionIndex === -1 || answerIndex === -1) { throw new Error("Cabeçalhos 'pergunta' ou 'resposta' não encontrados."); }
+                    const formattedData = parsedData.slice(1).map(row => ({ question: row[questionIndex]?.trim() || "", answer: row[answerIndex]?.trim() || "" })).filter(item => item.question && item.answer);
+                    return { data: formattedData, hash: currentHash, updated: true };
+                } catch (error) { console.error("Erro ao buscar dados da planilha:", error); throw error; }
+            }
+            async _fetchAndUpdateData(isManual = false) {
+                try {
+                    const result = await this._fetchSheetData();
+                    if (result && result.updated) {
+                        this.state.qaData = result.data; this.state.lastUpdateHash = result.hash; await this._saveToDatabase(result.data, result.hash);
+                        this._initSearchEngine();
+                        if (this.elements.chatArea.children.length > 1 || isManual) { this._addBotMessage(`Base de conhecimento atualizada!`); }
+                    }
+                } catch (error) { this._addBotMessage("Ocorreu um erro durante a atualização."); }
+            }
+            _startAutoUpdate() {
+                if (this.state.autoUpdateIntervalId) clearInterval(this.state.autoUpdateIntervalId);
+                this.state.autoUpdateIntervalId = setInterval(async () => {
+                    try { await this._fetchAndUpdateData(); } catch (error) { console.error("Erro na verificação automática:", error); }
+                }, this.config.AUTO_UPDATE_INTERVAL);
+            }
+            _initSearchEngine() { this.state.fuse = new Fuse(this.state.qaData, { keys: ['question'], includeScore: true, threshold: 0.5, ignoreLocation: true, minMatchCharLength: 3 }); }
+            async _handleQuestion() {
+                const question = this.elements.questionInput.value.trim();
+                if (!question) return;
+                this._addUserMessage(question);
+                this.elements.questionInput.value = '';
+                this._showTypingIndicator();
+                setTimeout(async () => {
+                    try {
+                        let answerText = null; let answerOptions = [];
+                        if (this.state.isAdvancedMode && this.state.isModelLoaded) {
+                            const embeddingMatch = await this._findBestMatchWithEmbedding(question);
+                            if (embeddingMatch) { answerText = embeddingMatch.item.answer; }
+                        }
+                        if (!answerText) {
+                            if (!this.state.fuse) { answerText = "A base de conhecimento não está pronta."; }
+                            else {
+                                const results = this.state.fuse.search(question);
+                                if (results.length > 0 && results[0].score < this.config.FUSE_THRESHOLD) { answerText = results[0].item.answer; }
+                                else if (results.length > 0) { answerText = "Não tenho certeza, mas talvez uma destas opções ajude:"; answerOptions = results.slice(0, 3); }
+                                else { answerText = "Desculpe, não encontrei uma resposta para isso."; }
+                            }
+                        }
+                        this._addBotMessage(answerText, answerOptions);
+                    } catch (error) {
+                        console.error("Erro ao processar pergunta:", error);
+                        this._addBotMessage("Ocorreu um erro ao processar sua pergunta.");
+                    }
+                }, 800);
+            }
+            async _findBestMatchWithEmbedding(question) {
+                if (!this.state.isModelLoaded || !this.state.useModel) return null;
+                try {
+                    const embeddings = await this.state.useModel.embed([question, ...this.state.qaData.map(item => item.question)]);
+                    const questionEmbedding = embeddings.slice(0, 1); const answerEmbeddings = embeddings.slice(1);
+                    const scores = await tf.matMul(questionEmbedding, answerEmbeddings, false, true).data();
+                    let bestScore = -1, bestIndex = -1;
+                    scores.forEach((score, i) => { if (score > bestScore) { bestScore = score; bestIndex = i; } });
+                    return bestScore > this.config.SIMILARITY_THRESHOLD ? { item: this.state.qaData[bestIndex], score: bestScore } : null;
+                } catch (error) { console.error("Erro ao usar embeddings:", error); return null; }
+            }
+            _setupEventListeners() {
+                this.elements.askButton.addEventListener('click', () => this._handleQuestion());
+                this.elements.questionInput.addEventListener('keypress', (e) => { if (e.key === 'Enter') this._handleQuestion(); });
+            }
+            _addUserMessage(text) {this._addMessage(text, 'user');}
+            _addBotMessage(text, options = []) { this._removeTypingIndicator(); this._addMessage(text, 'bot', options); }
+            _addMessage(text, sender, options = []) {
+                const messageDiv = document.createElement('div'); messageDiv.className = `message ${sender}-message`;
+                const contentDiv = document.createElement('div'); contentDiv.innerHTML = text.replace(/\n/g, '<br>');
+                messageDiv.appendChild(contentDiv);
+                if (options.length > 0) {
+                    options.forEach(result => {
+                        const button = document.createElement('button'); button.className = 'option-button'; button.textContent = result.item.question;
+                        button.onclick = () => { this._addUserMessage(result.item.question); this._showTypingIndicator(); setTimeout(() => { this._addBotMessage(result.item.answer); }, 400); };
+                        messageDiv.appendChild(button);
+                    });
+                }
+                this.elements.chatArea.appendChild(messageDiv);
+                this.elements.chatArea.scrollTop = this.elements.chatArea.scrollHeight;
+            }
+            _showTypingIndicator() { this._removeTypingIndicator(); const typingDiv = document.createElement('div'); typingDiv.className = 'typing-indicator'; typingDiv.id = 'typingIndicator'; typingDiv.innerHTML = '<div class="typing-dot"></div><div class="typing-dot"></div><div class="typing-dot"></div>'; this.elements.chatArea.appendChild(typingDiv); this.elements.chatArea.scrollTop = this.elements.chatArea.scrollHeight; }
+            _removeTypingIndicator() { const indicator = document.getElementById('typingIndicator'); if (indicator) indicator.remove(); }
+            async _checkAdvancedModeStatus() { /* Funcionalidade removida para simplicidade */ }
+            async _loadFromDatabase() { const data = await this._getFromDatabase(this.config.DATA_KEY) || []; const hash = await this._getFromDatabase(this.config.LAST_UPDATE_KEY) || ""; return { data, hash }; }
+            async _saveToDatabase(value, key) { return new Promise((resolve, reject) => { const tx = this.state.db.transaction(this.config.STORE_NAME, 'readwrite'); tx.objectStore(this.config.STORE_NAME).put(value, key); tx.oncomplete = resolve; tx.onerror = () => reject(tx.error); }); }
+            async _getFromDatabase(key) { return new Promise((resolve, reject) => { const tx = this.state.db.transaction(this.config.STORE_NAME, 'readonly'); const request = tx.objectStore(this.config.STORE_NAME).get(key); request.onsuccess = () => resolve(request.result); request.onerror = () => reject(request.error); }); }
+            _hashString(str) { let hash = 0; for (let i = 0; i < str.length; i++) { const char = str.charCodeAt(i); hash = (hash << 5) - hash + char; hash |= 0; } return hash.toString(); }
+            _parseCSV(csvText) { const rows = []; let currentRow = []; let currentField = ''; let inQuotedField = false; csvText = csvText.replace(/\r\n/g, '\n').replace(/\r/g, '\n'); for (let i = 0; i < csvText.length; i++) { const char = csvText[i]; if (inQuotedField) { if (char === '"') { if (i + 1 < csvText.length && csvText[i + 1] === '"') { currentField += '"'; i++; } else { inQuotedField = false; } } else { currentField += char; } } else { switch (char) { case ',': currentRow.push(currentField); currentField = ''; break; case '\n': currentRow.push(currentField); rows.push(currentRow); currentRow = []; currentField = ''; break; case '"': if (currentField === '') { inQuotedField = true; } else { currentField += char; } break; default: currentField += char; } } } if (currentField || currentRow.length > 0) { currentRow.push(currentField); rows.push(currentRow); } if (rows.length > 0 && rows[rows.length - 1].length === 1 && rows[rows.length - 1][0] === '') { rows.pop(); } return rows; }
+        }
+    </script>
+</body>
+</html>
