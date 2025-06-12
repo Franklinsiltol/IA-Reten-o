@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>NeuroAssist - Assistente Inteligente (v3.10 - IA Calibrada)</title>
+    <title>NeuroAssist - Assistente Inteligente (v3.6.2 - Calibragem Final)</title>
     <link rel="icon" type="image/png" href="https://lh3.googleusercontent.com/d/1fLb9cE9IgqCRNWzmGeQ_HNdsY4u8dNTl">
     <!-- Dependências -->
     <script src="https://cdn.jsdelivr.net/npm/fuse.js@6.6.2"></script>
@@ -12,7 +12,7 @@
     <script src="https://unpkg.com/compromise@latest/builds/compromise.min.js"></script>
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
     <style>
-        /* O CSS da v3.4 permanece o mesmo - moderno e branco */
+        /* O CSS da v3.4 permanece o mesmo */
         :root {
             --background-main: #FFFFFF; --background-secondary: #F0F2F5; --text-primary: #111B21;
             --text-secondary: #667781; --border-color: #E9EDEF; --primary: #007BFF;
@@ -100,9 +100,9 @@
             constructor() {
                 this.config = {
                     SHEET_ID: "1pgoYg76gutqLnOlsk3mN40HfzN9n-x_6oJQcfkZEBzY", SHEET_NAME: "Retenção", AUTO_UPDATE_INTERVAL: 600000, DB_NAME: "NeuroAssistDB", STORE_NAME: "KnowledgeBase", DATA_KEY: "qaData", LAST_UPDATE_KEY: "lastUpdate", MODEL_KEY: "useModel",
-                    SIMILARITY_THRESHOLD: 0.7, 
+                    SIMILARITY_THRESHOLD: 0.75, // Aumentamos a exigência do Modo Avançado
                     FUSE_CONFIDENCE_THRESHOLD: 0.25, 
-                    FUSE_SUGGESTION_THRESHOLD: 0.5,
+                    FUSE_SUGGESTION_THRESHOLD: 0.45, // Tornamos a sugestão um pouco mais rigorosa
                     VAGUE_PHRASES: ['o que é', 'o que significa', 'para que serve', 'em que consiste', 'o que se entende por', 'como funciona', 'como é feito', 'como se faz', 'qual o processo de', 'qual o processo para', 'como ocorre', 'como se desenvolve', 'como acontece', 'o que fazer quando', 'como agir em caso de', 'qual a melhor forma de', 'como devo proceder para', 'o que devo fazer se', 'como lidar com', 'qual a diferença entre', 'qual a melhor opção', 'o que é melhor', 'o que escolher entre', 'qual a vantagem de', 'por que escolher', 'quando começa', 'quanto tempo leva para', 'desde quando', 'até quando', 'em que momento', 'por que', 'qual o motivo de', 'o que causa', 'qual a razão para', 'de onde vem', 'onde fica', 'onde posso encontrar', 'aonde devo ir para', 'em que local', 'onde acontece', 'quem é responsável por', 'quem faz', 'a quem devo procurar', 'quem pode me ajudar com', 'quanto custa', 'quantos são', 'qual o valor de', 'quanto devo pagar', 'qual a quantidade ideal', 'o que fazer se não', 'como resolver', 'por que não está funcionando', 'o que pode estar errado com', 'como consertar', 'como preencher', 'qual é a regra para', 'o que é obrigatório em', 'como seguir as instruções de', 'quais são os requisitos']
                 };
                 this.elements = { questionInput: document.getElementById('questionInput'), askButton: document.getElementById('askButton'), suggestButton: document.getElementById('suggestButton'), chatArea: document.getElementById('chatArea'), statusText: document.getElementById('statusText'), statusDot: document.querySelector('.status-dot'), autoUpdateStatus: document.getElementById('autoUpdateStatus'), updateBanner: document.getElementById('updateBanner'), refreshLink: document.getElementById('refreshLink'), modelLoadingProgress: document.getElementById('modelLoadingProgress'), modelStatusText: document.getElementById('modelStatusText'), modelProgressText: document.getElementById('modelProgressText'), modelProgressBar: document.getElementById('modelProgressBar'), advancedModeToggle: document.getElementById('advancedModeToggle'), customSuggestionModal: document.getElementById('customSuggestionModal'), suggestionTextarea: document.getElementById('suggestionTextarea'), submitSuggestionBtn: document.getElementById('submitSuggestionBtn'), cancelSuggestionBtn: document.getElementById('cancelSuggestionBtn') };
@@ -157,15 +157,17 @@
                 } catch (error) { this._addBotMessage("Ocorreu um erro durante a atualização."); }
             }
             _startAutoUpdate() { if (this.state.autoUpdateIntervalId) clearInterval(this.state.autoUpdateIntervalId); this.state.autoUpdateIntervalId = setInterval(async () => { try { const { updated } = await this._fetchSheetData(); if (updated) { this._showUpdateBanner(); } } catch (error) { console.error("Erro na verificação automática:", error); this.elements.autoUpdateStatus.textContent = `Erro na verificação (${new Date().toLocaleTimeString()})`; } }, this.config.AUTO_UPDATE_INTERVAL); this.elements.autoUpdateStatus.textContent = `Verificação a cada ${this.config.AUTO_UPDATE_INTERVAL / 60000} min.`; }
+            
             _initSearchEngine() {
                 this.state.fuse = new Fuse(this.state.qaData, { 
                     keys: ['processedQuestion'],
                     includeScore: true, 
-                    threshold: 0.45, 
+                    threshold: 0.4, // Mantemos o threshold da v3.6 que você gostou
                     ignoreLocation: true, 
                     minMatchCharLength: 3
                 });
             }
+            
             _processQuery(text) {
                 if (!text || typeof nlp === 'undefined') return text.toLowerCase().replace(/[^\w\s]/gi, '');
                 let doc = nlp(text);
@@ -176,6 +178,7 @@
                 if (terms.length === 0) { return doc.text('reduced'); }
                 return terms.join(' ');
             }
+
             async _handleQuestion() {
                 const question = this.elements.questionInput.value.trim();
                 const questionLower = question.toLowerCase();
@@ -259,17 +262,15 @@
                     if (bestScore > this.config.SIMILARITY_THRESHOLD) {
                         const bestMatch = this.state.qaData[bestIndex];
                         
-                        // Verificação Cruzada: A sugestão da IA é textualmente relevante?
                         const userQueryTerms = this._processQuery(question).split(' ');
                         const matchTerms = this._processQuery(bestMatch.question).split(' ');
                         const commonTerms = userQueryTerms.filter(term => matchTerms.includes(term));
 
-                        // Se houver pelo menos uma palavra-chave em comum (que não seja muito pequena), aceitamos.
                         if (commonTerms.some(term => term.length > 2)) {
-                            return bestMatch.answer; // Retorna a resposta se for um bom match
+                            return bestMatch.answer; 
                         }
                     }
-                    return null; // Se não for um bom match semântico OU textual, retorna nulo.
+                    return null;
                 } catch (error) { 
                     console.error("Erro ao usar embeddings:", error); 
                     return null; 
