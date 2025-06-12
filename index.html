@@ -3,13 +3,12 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>NeuroAssist - Assistente Inteligente (v3.5 Calibrado)</title>
+    <title>NeuroAssist - Assistente Inteligente (v3.7 - Humilde e Preciso)</title>
     <link rel="icon" type="image/png" href="https://lh3.googleusercontent.com/d/1fLb9cE9IgqCRNWzmGeQ_HNdsY4u8dNTl">
     <!-- Dependências -->
     <script src="https://cdn.jsdelivr.net/npm/fuse.js@6.6.2"></script>
     <script src="https://cdn.jsdelivr.net/npm/@tensorflow/tfjs@3.18.0"></script>
     <script src="https://cdn.jsdelivr.net/npm/@tensorflow-models/universal-sentence-encoder@1.3.3"></script>
-    <!-- NOVA BIBLIOTECA DE NLP -->
     <script src="https://unpkg.com/compromise@latest/builds/compromise.min.js"></script>
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
     <style>
@@ -97,10 +96,17 @@
     <div id="customSuggestionModal" class="custom-modal"><div class="custom-modal-content"><h3>Sugerir uma pergunta</h3><p>Não encontrou o que procurava? Ajude-nos a melhorar! Envie sua pergunta e ela será analisada por nossa equipe para ser adicionada à base de conhecimento.</p><textarea id="suggestionTextarea" placeholder="Escreva aqui a pergunta que você não encontrou..."></textarea><div class="modal-actions"><button id="cancelSuggestionBtn" class="action-button no">Cancelar</button><button id="submitSuggestionBtn" class="action-button yes">Enviar sugestão</button></div></div></div>
 
     <script>
-        // O código JavaScript permanece o mesmo do v3.1, com a adição da lógica de precisão
         class NeuroAssist {
             constructor() {
-                this.config = { SHEET_ID: "1pgoYg76gutqLnOlsk3mN40HfzN9n-x_6oJQcfkZEBzY", SHEET_NAME: "Retenção", AUTO_UPDATE_INTERVAL: 600000, DB_NAME: "NeuroAssistDB", STORE_NAME: "KnowledgeBase", DATA_KEY: "qaData", LAST_UPDATE_KEY: "lastUpdate", MODEL_KEY: "useModel", SIMILARITY_THRESHOLD: 0.7, FUSE_THRESHOLD: 0.35 };
+                this.config = {
+                    SHEET_ID: "1pgoYg76gutqLnOlsk3mN40HfzN9n-x_6oJQcfkZEBzY", SHEET_NAME: "Retenção", AUTO_UPDATE_INTERVAL: 600000, DB_NAME: "NeuroAssistDB", STORE_NAME: "KnowledgeBase", DATA_KEY: "qaData", LAST_UPDATE_KEY: "lastUpdate", MODEL_KEY: "useModel",
+                    SIMILARITY_THRESHOLD: 0.7, 
+                    // --- NOSSO TERMOSTATO DA CONFIANÇA ---
+                    FUSE_CONFIDENCE_THRESHOLD: 0.25, // Zona de Certeza: Responde direto se o score for MENOR que isso.
+                    FUSE_SUGGESTION_THRESHOLD: 0.5,  // Zona de Sugestão: Sugere opções se o score estiver entre os dois thresholds.
+                    // Zona de Humildade: Qualquer score MAIOR que o FUSE_SUGGESTION_THRESHOLD.
+                    VAGUE_PHRASES: ['como funciona', 'o que é', 'qual o processo', 'qual o procedimento', 'como fazer para']
+                };
                 this.elements = { questionInput: document.getElementById('questionInput'), askButton: document.getElementById('askButton'), suggestButton: document.getElementById('suggestButton'), chatArea: document.getElementById('chatArea'), statusText: document.getElementById('statusText'), statusDot: document.querySelector('.status-dot'), autoUpdateStatus: document.getElementById('autoUpdateStatus'), updateBanner: document.getElementById('updateBanner'), refreshLink: document.getElementById('refreshLink'), modelLoadingProgress: document.getElementById('modelLoadingProgress'), modelStatusText: document.getElementById('modelStatusText'), modelProgressText: document.getElementById('modelProgressText'), modelProgressBar: document.getElementById('modelProgressBar'), advancedModeToggle: document.getElementById('advancedModeToggle'), customSuggestionModal: document.getElementById('customSuggestionModal'), suggestionTextarea: document.getElementById('suggestionTextarea'), submitSuggestionBtn: document.getElementById('submitSuggestionBtn'), cancelSuggestionBtn: document.getElementById('cancelSuggestionBtn') };
                 this.state = { db: null, fuse: null, qaData: [], lastUpdateHash: "", autoUpdateIntervalId: null, useModel: null, isModelLoaded: false, isModelLoading: false, isAdvancedMode: false, conversationHistory: [], lastUnansweredQuestion: null, isAwaitingSuggestion: false };
                 this._init();
@@ -153,33 +159,22 @@
                 } catch (error) { this._addBotMessage("Ocorreu um erro durante a atualização."); }
             }
             _startAutoUpdate() { if (this.state.autoUpdateIntervalId) clearInterval(this.state.autoUpdateIntervalId); this.state.autoUpdateIntervalId = setInterval(async () => { try { const { updated } = await this._fetchSheetData(); if (updated) { this._showUpdateBanner(); } } catch (error) { console.error("Erro na verificação automática:", error); this.elements.autoUpdateStatus.textContent = `Erro na verificação (${new Date().toLocaleTimeString()})`; } }, this.config.AUTO_UPDATE_INTERVAL); this.elements.autoUpdateStatus.textContent = `Verificação a cada ${this.config.AUTO_UPDATE_INTERVAL / 60000} min.`; }
+            _initSearchEngine() { this.state.fuse = new Fuse(this.state.qaData, { keys: ['processedQuestion'], includeScore: true, threshold: this.config.FUSE_SUGGESTION_THRESHOLD, ignoreLocation: true, minMatchCharLength: 2 }); }
             
-            _initSearchEngine() {
-                // AGORA O FUSE BUSCA NA PERGUNTA PROCESSADA
-                this.state.fuse = new Fuse(this.state.qaData, { keys: ['processedQuestion'], includeScore: true, threshold: 0.4, ignoreLocation: true, minMatchCharLength: 2 });
-            }
-            
-            // --- NOVA FUNÇÃO DE PROCESSAMENTO DE TEXTO ---
             _processQuery(text) {
-                if (!text || typeof nlp === 'undefined') return text.toLowerCase().replace(/[^\w\s]/gi, ''); // Fallback
-                
+                if (!text || typeof nlp === 'undefined') return text.toLowerCase().replace(/[^\w\s]/gi, '');
                 let doc = nlp(text);
-                // Normaliza: minúsculas, remove pontuação, contrações, etc.
                 doc.normalize('heavy');
-                // Pega apenas os termos principais (substantivos, adjetivos, verbos)
                 let terms = doc.nouns().out('array');
                 terms = terms.concat(doc.verbs().out('array'));
                 terms = terms.concat(doc.adjectives().out('array'));
-
-                // Se não sobrar nenhum termo, usa o texto normalizado como fallback
-                if (terms.length === 0) {
-                    return doc.text('reduced');
-                }
+                if (terms.length === 0) { return doc.text('reduced'); }
                 return terms.join(' ');
             }
 
             async _handleQuestion() {
                 const question = this.elements.questionInput.value.trim();
+                const questionLower = question.toLowerCase();
                 if (!question) return;
                 
                 if (this.state.isAwaitingSuggestion) {
@@ -193,37 +188,49 @@
                 
                 this._showTypingIndicator();
                 
+                const isVague = this.config.VAGUE_PHRASES.includes(questionLower);
+                if (isVague) {
+                    const suggestions = this.state.qaData.filter(item => 
+                        item.question.toLowerCase().startsWith(questionLower)
+                    ).map(item => ({ item }));
+                    if (suggestions.length > 0) {
+                        this._addBotMessage(`Isso é um pouco vago. Você quis dizer alguma destas opções?`, suggestions.slice(0, 4));
+                    } else {
+                        this._addBotMessage(`Sua pergunta é muito genérica. Por favor, tente ser mais específico (ex: "${question} o cartão?").`);
+                    }
+                    return;
+                }
+
                 setTimeout(async () => {
                     try {
                         let answerText = null; let answerOptions = [];
-                        
-                        // --- LÓGICA DE BUSCA ATUALIZADA ---
                         const processedQuery = this._processQuery(question);
 
-                        // Verifica se a pergunta é muito vaga
                         if (processedQuery.split(' ').length < 2 && question.length < 5) {
                             answerText = "Sua pergunta é muito curta. Por favor, tente ser mais específico.";
-                            this._addBotMessage(answerText, answerOptions);
-                            return;
+                            this._addBotMessage(answerText, answerOptions); return;
                         }
                         
-                        // Busca semântica primeiro, se ativa
                         if (this.state.isAdvancedMode && this.state.isModelLoaded) {
                             const embeddingMatch = await this._findBestMatchWithEmbedding(question);
                             if (embeddingMatch) { answerText = embeddingMatch.item.answer; }
                         }
                         
-                        // Fallback para busca textual aprimorada
                         if (!answerText) {
                             if (!this.state.fuse) { answerText = "A base de conhecimento não está pronta."; }
                             else {
                                 const results = this.state.fuse.search(processedQuery);
-                                if (results.length > 0 && results[0].score < this.config.FUSE_THRESHOLD) {
+                                
+                                // --- LÓGICA DO TERMOSTATO DA CONFIANÇA ---
+                                if (results.length > 0 && results[0].score < this.config.FUSE_CONFIDENCE_THRESHOLD) {
+                                    // Zona de Certeza: Responde direto
                                     answerText = results[0].item.answer;
-                                } else if (results.length > 0) {
+                                } else if (results.length > 0 && results[0].score < this.config.FUSE_SUGGESTION_THRESHOLD) {
+                                    // Zona de Sugestão: Mostra opções
                                     answerText = "Não tenho certeza, mas talvez uma destas opções ajude:";
                                     answerOptions = results.slice(0, 3);
                                 } else {
+                                    // Zona de Humildade: Admite que não sabe
                                     this.state.lastUnansweredQuestion = question;
                                     answerText = "Desculpe, não encontrei uma resposta. Gostaria de adicionar esta pergunta à nossa base de conhecimento?";
                                 }
@@ -238,7 +245,7 @@
                 }, 800);
             }
             
-            // O resto do código (a partir de _showAddQuestionButtons) permanece igual ao da v3.1
+            // O resto do código permanece o mesmo.
             _showAddQuestionButtons(){const messageDiv=this.elements.chatArea.querySelector('.message:last-child');if(!messageDiv)return;const buttonsContainer=document.createElement('div');buttonsContainer.className='action-buttons';const yesButton=document.createElement('button');yesButton.className='action-button yes';yesButton.textContent='Sim';yesButton.onclick=()=>{this._submitQuestionToForm(this.state.lastUnansweredQuestion);buttonsContainer.remove();};const noButton=document.createElement('button');noButton.className='action-button no';noButton.textContent='Não';noButton.onclick=()=>{this._addBotMessage("Entendido! Se precisar de algo mais, é só perguntar.");buttonsContainer.remove();};buttonsContainer.appendChild(yesButton);buttonsContainer.appendChild(noButton);messageDiv.appendChild(buttonsContainer);}
             async _submitQuestionToForm(question,fromCommand=false){if(!question)return;const formUrl='https://docs.google.com/forms/d/e/1FAIpQLSdK1OUPcBGtMRdWQz4JhyeQBuet-wXbEQ4CyAX07f6rHSvdyA/formResponse';const formData=new FormData();formData.append('entry.2126538361',question);try{await fetch(formUrl,{method:'POST',mode:'no-cors',body:formData});let confirmationMessage=fromCommand?"Obrigado! Sua sugestão foi enviada para análise.":"Obrigado por contribuir! Sua pergunta foi enviada para nossa equipe.";this._addBotMessage(confirmationMessage);}catch(error){console.error("Erro ao enviar pergunta:",error);this._addBotMessage("Houve um erro ao enviar sua pergunta.");}
             this.state.lastUnansweredQuestion=null;}
