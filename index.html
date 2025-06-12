@@ -3,13 +3,13 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>NeuroAssist - Assistente Inteligente (v3.9 - Busca Confiável)</title>
+    <title>NeuroAssist - Assistente Inteligente (v3.6 - Perguntas Vagas)</title>
     <link rel="icon" type="image/png" href="https://lh3.googleusercontent.com/d/1fLb9cE9IgqCRNWzmGeQ_HNdsY4u8dNTl">
     <!-- Dependências -->
     <script src="https://cdn.jsdelivr.net/npm/fuse.js@6.6.2"></script>
     <script src="https://cdn.jsdelivr.net/npm/@tensorflow/tfjs@3.18.0"></script>
     <script src="https://cdn.jsdelivr.net/npm/@tensorflow-models/universal-sentence-encoder@1.3.3"></script>
-    <!-- A biblioteca 'compromise' foi REMOVIDA -->
+    <script src="https://unpkg.com/compromise@latest/builds/compromise.min.js"></script>
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
     <style>
         /* O CSS da v3.4 permanece o mesmo - moderno e branco */
@@ -99,21 +99,9 @@
         class NeuroAssist {
             constructor() {
                 this.config = {
-                    SHEET_ID: "1pgoYg76gutqLnOlsk3mN40HfzN9n-x_6oJQcfkZEBzY", SHEET_NAME: "Retenção", AUTO_UPDATE_INTERVAL: 600000, DB_NAME: "NeuroAssistDB", STORE_NAME: "KnowledgeBase", DATA_KEY: "qaData", LAST_UPDATE_KEY: "lastUpdate", MODEL_KEY: "useModel",
-                    SIMILARITY_THRESHOLD: 0.7, 
-                    FUSE_CONFIDENCE_THRESHOLD: 0.3,
-                    FUSE_SUGGESTION_THRESHOLD: 0.5,
-                    VAGUE_PHRASES: [
-                        'o que é', 'o que significa', 'para que serve', 'em que consiste', 'o que se entende por', 'como funciona', 'como é feito', 'como se faz', 
-                        'qual o processo de', 'qual o processo para', 'como ocorre', 'como se desenvolve', 'como acontece', 'o que fazer quando', 'como agir em caso de',
-                        'qual a melhor forma de', 'como devo proceder para', 'o que devo fazer se', 'como lidar com', 'qual a diferença entre', 'qual a melhor opção',
-                        'o que é melhor', 'o que escolher entre', 'qual a vantagem de', 'por que escolher', 'quando começa', 'quanto tempo leva para', 'desde quando',
-                        'até quando', 'em que momento', 'por que', 'qual o motivo de', 'o que causa', 'qual a razão para', 'de onde vem', 'onde fica', 'onde posso encontrar',
-                        'aonde devo ir para', 'em que local', 'onde acontece', 'quem é responsável por', 'quem faz', 'a quem devo procurar', 'quem pode me ajudar com',
-                        'quanto custa', 'quantos são', 'qual o valor de', 'quanto devo pagar', 'qual a quantidade ideal', 'o que fazer se não', 'como resolver',
-                        'por que não está funcionando', 'o que pode estar errado com', 'como consertar', 'como preencher', 'qual é a regra para',
-                        'o que é obrigatório em', 'como seguir as instruções de', 'quais são os requisitos'
-                    ]
+                    SHEET_ID: "1pgoYg76gutqLnOlsk3mN40HfzN9n-x_6oJQcfkZEBzY", SHEET_NAME: "Retenção", AUTO_UPDATE_INTERVAL: 600000, DB_NAME: "NeuroAssistDB", STORE_NAME: "KnowledgeBase", DATA_KEY: "qaData", LAST_UPDATE_KEY: "lastUpdate", MODEL_KEY: "useModel", SIMILARITY_THRESHOLD: 0.7, FUSE_THRESHOLD: 0.35,
+                    // --- NOVA LISTA DE FRASES VAGAS ---
+                    VAGUE_PHRASES: ['como funciona', 'o que é', 'qual o processo', 'qual o procedimento', 'como fazer para']
                 };
                 this.elements = { questionInput: document.getElementById('questionInput'), askButton: document.getElementById('askButton'), suggestButton: document.getElementById('suggestButton'), chatArea: document.getElementById('chatArea'), statusText: document.getElementById('statusText'), statusDot: document.querySelector('.status-dot'), autoUpdateStatus: document.getElementById('autoUpdateStatus'), updateBanner: document.getElementById('updateBanner'), refreshLink: document.getElementById('refreshLink'), modelLoadingProgress: document.getElementById('modelLoadingProgress'), modelStatusText: document.getElementById('modelStatusText'), modelProgressText: document.getElementById('modelProgressText'), modelProgressBar: document.getElementById('modelProgressBar'), advancedModeToggle: document.getElementById('advancedModeToggle'), customSuggestionModal: document.getElementById('customSuggestionModal'), suggestionTextarea: document.getElementById('suggestionTextarea'), submitSuggestionBtn: document.getElementById('submitSuggestionBtn'), cancelSuggestionBtn: document.getElementById('cancelSuggestionBtn') };
                 this.state = { db: null, fuse: null, qaData: [], lastUpdateHash: "", autoUpdateIntervalId: null, useModel: null, isModelLoaded: false, isModelLoading: false, isAdvancedMode: false, conversationHistory: [], lastUnansweredQuestion: null, isAwaitingSuggestion: false };
@@ -151,7 +139,7 @@
                     const headers = parsedData[0].map(h => h.trim().toLowerCase());
                     const questionIndex = headers.indexOf("pergunta"); const answerIndex = headers.indexOf("resposta");
                     if (questionIndex === -1 || answerIndex === -1) { this._addBotMessage(`ERRO: Não encontrei as colunas "pergunta" e "resposta".`); throw new Error("Cabeçalhos não encontrados."); }
-                    const formattedData = parsedData.slice(1).map(row => ({ question: row[questionIndex]?.trim() || "", answer: row[answerIndex]?.trim() || ""})).filter(item => item.question && item.answer);
+                    const formattedData = parsedData.slice(1).map(row => ({ question: row[questionIndex]?.trim() || "", answer: row[answerIndex]?.trim() || "", processedQuestion: this._processQuery(row[questionIndex]?.trim() || "") })).filter(item => item.question && item.answer);
                     return { data: formattedData, hash: currentHash, updated: true };
                 } catch (error) { console.error("Erro ao buscar dados da planilha:", error); this._updateStatus("Erro ao atualizar", 'error'); throw error; }
             }
@@ -167,22 +155,17 @@
                 } catch (error) { this._addBotMessage("Ocorreu um erro durante a atualização."); }
             }
             _startAutoUpdate() { if (this.state.autoUpdateIntervalId) clearInterval(this.state.autoUpdateIntervalId); this.state.autoUpdateIntervalId = setInterval(async () => { try { const { updated } = await this._fetchSheetData(); if (updated) { this._showUpdateBanner(); } } catch (error) { console.error("Erro na verificação automática:", error); this.elements.autoUpdateStatus.textContent = `Erro na verificação (${new Date().toLocaleTimeString()})`; } }, this.config.AUTO_UPDATE_INTERVAL); this.elements.autoUpdateStatus.textContent = `Verificação a cada ${this.config.AUTO_UPDATE_INTERVAL / 60000} min.`; }
+            _initSearchEngine() { this.state.fuse = new Fuse(this.state.qaData, { keys: ['processedQuestion'], includeScore: true, threshold: 0.4, ignoreLocation: true, minMatchCharLength: 2 }); }
             
-            _initSearchEngine() {
-                this.state.fuse = new Fuse(this.state.qaData, { 
-                    keys: ['question'], 
-                    includeScore: true, 
-                    threshold: this.config.FUSE_SUGGESTION_THRESHOLD,
-                    ignoreLocation: true, 
-                    minMatchCharLength: 3 
-                });
-            }
-            
-            _normalizeText(text) {
-                if (!text) return '';
-                return text.toLowerCase()
-                           .normalize("NFD").replace(/[\u0300-\u036f]/g, "") 
-                           .replace(/[.,\/#!$%\^&\*;:{}=\-_`~()?]/g, "");
+            _processQuery(text) {
+                if (!text || typeof nlp === 'undefined') return text.toLowerCase().replace(/[^\w\s]/gi, '');
+                let doc = nlp(text);
+                doc.normalize('heavy');
+                let terms = doc.nouns().out('array');
+                terms = terms.concat(doc.verbs().out('array'));
+                terms = terms.concat(doc.adjectives().out('array'));
+                if (terms.length === 0) { return doc.text('reduced'); }
+                return terms.join(' ');
             }
 
             async _handleQuestion() {
@@ -201,23 +184,30 @@
                 
                 this._showTypingIndicator();
                 
-                const vaguePhrase = this.config.VAGUE_PHRASES.find(phrase => questionLower.startsWith(phrase));
-                if (vaguePhrase && questionLower.length <= vaguePhrase.length + 5) {
+                // --- NOVA LÓGICA PARA PERGUNTAS VAGAS ---
+                const isVague = this.config.VAGUE_PHRASES.includes(questionLower);
+                if (isVague) {
                     const suggestions = this.state.qaData.filter(item => 
-                        this._normalizeText(item.question).startsWith(this._normalizeText(vaguePhrase))
-                    ).map(item => ({ item }));
+                        item.question.toLowerCase().startsWith(questionLower)
+                    ).map(item => ({ item })); // Formata para o formato que a função de botões espera
+
                     if (suggestions.length > 0) {
                         this._addBotMessage(`Isso é um pouco vago. Você quis dizer alguma destas opções?`, suggestions.slice(0, 4));
                     } else {
                         this._addBotMessage(`Sua pergunta é muito genérica. Por favor, tente ser mais específico (ex: "${question} o cartão?").`);
                     }
-                    this._removeTypingIndicator();
                     return;
                 }
 
                 setTimeout(async () => {
                     try {
                         let answerText = null; let answerOptions = [];
+                        const processedQuery = this._processQuery(question);
+
+                        if (processedQuery.split(' ').length < 2 && question.length < 5) {
+                            answerText = "Sua pergunta é muito curta. Por favor, tente ser mais específico.";
+                            this._addBotMessage(answerText, answerOptions); return;
+                        }
                         
                         if (this.state.isAdvancedMode && this.state.isModelLoaded) {
                             const embeddingMatch = await this._findBestMatchWithEmbedding(question);
@@ -227,12 +217,10 @@
                         if (!answerText) {
                             if (!this.state.fuse) { answerText = "A base de conhecimento não está pronta."; }
                             else {
-                                const normalizedQuery = this._normalizeText(question);
-                                const results = this.state.fuse.search(normalizedQuery);
-                                
-                                if (results.length > 0 && results[0].score < this.config.FUSE_CONFIDENCE_THRESHOLD) {
+                                const results = this.state.fuse.search(processedQuery);
+                                if (results.length > 0 && results[0].score < this.config.FUSE_THRESHOLD) {
                                     answerText = results[0].item.answer;
-                                } else if (results.length > 0 && results[0].score < this.config.FUSE_SUGGESTION_THRESHOLD) {
+                                } else if (results.length > 0) {
                                     answerText = "Não tenho certeza, mas talvez uma destas opções ajude:";
                                     answerOptions = results.slice(0, 3);
                                 } else {
@@ -250,7 +238,7 @@
                 }, 800);
             }
             
-            // O resto do código (a partir de _showAddQuestionButtons) permanece o mesmo.
+            // O resto do código permanece o mesmo.
             _showAddQuestionButtons(){const messageDiv=this.elements.chatArea.querySelector('.message:last-child');if(!messageDiv)return;const buttonsContainer=document.createElement('div');buttonsContainer.className='action-buttons';const yesButton=document.createElement('button');yesButton.className='action-button yes';yesButton.textContent='Sim';yesButton.onclick=()=>{this._submitQuestionToForm(this.state.lastUnansweredQuestion);buttonsContainer.remove();};const noButton=document.createElement('button');noButton.className='action-button no';noButton.textContent='Não';noButton.onclick=()=>{this._addBotMessage("Entendido! Se precisar de algo mais, é só perguntar.");buttonsContainer.remove();};buttonsContainer.appendChild(yesButton);buttonsContainer.appendChild(noButton);messageDiv.appendChild(buttonsContainer);}
             async _submitQuestionToForm(question,fromCommand=false){if(!question)return;const formUrl='https://docs.google.com/forms/d/e/1FAIpQLSdK1OUPcBGtMRdWQz4JhyeQBuet-wXbEQ4CyAX07f6rHSvdyA/formResponse';const formData=new FormData();formData.append('entry.2126538361',question);try{await fetch(formUrl,{method:'POST',mode:'no-cors',body:formData});let confirmationMessage=fromCommand?"Obrigado! Sua sugestão foi enviada para análise.":"Obrigado por contribuir! Sua pergunta foi enviada para nossa equipe.";this._addBotMessage(confirmationMessage);}catch(error){console.error("Erro ao enviar pergunta:",error);this._addBotMessage("Houve um erro ao enviar sua pergunta.");}
             this.state.lastUnansweredQuestion=null;}
