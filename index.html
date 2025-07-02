@@ -3,8 +3,8 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>NeuroAssist - Assistente Inteligente (v3.6 - Perguntas Vagas)</title>
-    <link rel="icon" type="image/png" href="https://lh3.googleusercontent.com/d/1-H-um4lnsC7fmbqtHNgX38eK8270SYOE">
+    <title>NeuroAssist - Assistente Inteligente (v3.7 com Notificação)</title>
+    <link rel="icon" type="image/png" href="https://lh3.googleusercontent.com/d/1fLb9cE9IgqCRNWzmGeQ_HNdsY4u8dNTl">
     <!-- Dependências -->
     <script src="https://cdn.jsdelivr.net/npm/fuse.js@6.6.2"></script>
     <script src="https://cdn.jsdelivr.net/npm/@tensorflow/tfjs@3.18.0"></script>
@@ -12,7 +12,7 @@
     <script src="https://unpkg.com/compromise@latest/builds/compromise.min.js"></script>
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
     <style>
-        /* O CSS da v3.4 permanece o mesmo - moderno e branco */
+        /* O CSS da v3.4 permanece o mesmo */
         :root {
             --background-main: #FFFFFF; --background-secondary: #F0F2F5; --text-primary: #111B21;
             --text-secondary: #667781; --border-color: #E9EDEF; --primary: #007BFF;
@@ -92,16 +92,18 @@
 </head>
 <body>
     <div id="updateBanner" class="update-banner" style="display: none;">Nova atualização disponível! <a href="#" id="refreshLink">Recarregar agora</a></div>
-    <div class="app-container"><header><div class="logo"><img src="https://lh3.googleusercontent.com/d/1tG7oc1T5Xd3f1vZ267xPCX9k2SVrfNz1" alt="Logo" class="logo-icon"><div class="logo-text">NeuroAssist</div></div><div class="settings-toggle"><label class="toggle-switch"><input type="checkbox" id="advancedModeToggle"><span class="toggle-slider"></span></label><span>Avançado</span></div><div class="status-indicator"><div class="status-dot loading"></div><span id="statusText">Conectando...</span></div></header><div class="chat-container"><div class="chat-area" id="chatArea"></div><div class="input-area-wrapper"><div id="modelLoadingProgress" class="model-loading-progress" style="display: none;"><div class="model-status"><span id="modelStatusText">Carregando modelo...</span><span id="modelProgressText">0%</span></div><div class="progress-container"><div id="modelProgressBar" class="progress-bar" style="width: 0%"></div></div></div><div class="input-area"><input type="text" id="questionInput" placeholder="Digite sua mensagem..." autocomplete="off"><button id="suggestButton" class="button" title="Sugerir uma pergunta"><svg width="24" height="24" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg"><path d="M12 22C17.5228 22 22 17.5228 22 12C22 6.47715 17.5228 2 12 2C6.47715 2 2 6.47715 2 12C2 17.5228 6.47715 22 12 22Z" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/><path d="M12 16V12" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/><path d="M12 8H12.01" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg></button><button id="askButton" class="button" title="Enviar"><svg width="24" height="24" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg"><path d="M22 2L11 13" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/><path d="M22 2L15 22L11 13L2 9L22 2Z" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg></button></div><div id="autoUpdateStatus" class="status-footer"></div></div></div></div>
+    <div class="app-container"><header><div class="logo"><img src="https://lh3.googleusercontent.com/d/1fLb9cE9IgqCRNWzmGeQ_HNdsY4u8dNTl" alt="Logo" class="logo-icon"><div class="logo-text">NeuroAssist</div></div><div class="settings-toggle"><label class="toggle-switch"><input type="checkbox" id="advancedModeToggle"><span class="toggle-slider"></span></label><span>Avançado</span></div><div class="status-indicator"><div class="status-dot loading"></div><span id="statusText">Conectando...</span></div></header><div class="chat-container"><div class="chat-area" id="chatArea"></div><div class="input-area-wrapper"><div id="modelLoadingProgress" class="model-loading-progress" style="display: none;"><div class="model-status"><span id="modelStatusText">Carregando modelo...</span><span id="modelProgressText">0%</span></div><div class="progress-container"><div id="modelProgressBar" class="progress-bar" style="width: 0%"></div></div></div><div class="input-area"><input type="text" id="questionInput" placeholder="Digite sua mensagem..." autocomplete="off"><button id="suggestButton" class="button" title="Sugerir uma pergunta"><svg width="24" height="24" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg"><path d="M12 22C17.5228 22 22 17.5228 22 12C22 6.47715 17.5228 2 12 2C6.47715 2 2 6.47715 2 12C2 17.5228 6.47715 22 12 22Z" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/><path d="M12 16V12" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/><path d="M12 8H12.01" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg></button><button id="askButton" class="button" title="Enviar"><svg width="24" height="24" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg"><path d="M22 2L11 13" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/><path d="M22 2L15 22L11 13L2 9L22 2Z" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg></button></div><div id="autoUpdateStatus" class="status-footer"></div></div></div></div>
     <div id="customSuggestionModal" class="custom-modal"><div class="custom-modal-content"><h3>Sugerir uma pergunta</h3><p>Não encontrou o que procurava? Ajude-nos a melhorar! Envie sua pergunta e ela será analisada por nossa equipe para ser adicionada à base de conhecimento.</p><textarea id="suggestionTextarea" placeholder="Escreva aqui a pergunta que você não encontrou..."></textarea><div class="modal-actions"><button id="cancelSuggestionBtn" class="action-button no">Cancelar</button><button id="submitSuggestionBtn" class="action-button yes">Enviar sugestão</button></div></div></div>
 
     <script>
         class NeuroAssist {
             constructor() {
                 this.config = {
-                    SHEET_ID: "1pgoYg76gutqLnOlsk3mN40HfzN9n-x_6oJQcfkZEBzY", SHEET_NAME: "Retenção", AUTO_UPDATE_INTERVAL: 600000, DB_NAME: "NeuroAssistDB", STORE_NAME: "KnowledgeBase", DATA_KEY: "qaData", LAST_UPDATE_KEY: "lastUpdate", MODEL_KEY: "useModel", SIMILARITY_THRESHOLD: 0.7, FUSE_THRESHOLD: 0.35,
-                    // --- NOVA LISTA DE FRASES VAGAS ---
-                    VAGUE_PHRASES: ['como funciona', 'o que é', 'qual o processo', 'qual o procedimento', 'como fazer para']
+                    SHEET_ID: "1pgoYg76gutqLnOlsk3mN40HfzN9n-x_6oJQcfkZEBzY", SHEET_NAME: "Retenção", NOTIFICATION_SHEET_NAME: "Notificação", AUTO_UPDATE_INTERVAL: 600000, DB_NAME: "NeuroAssistDB", STORE_NAME: "KnowledgeBase", DATA_KEY: "qaData", LAST_UPDATE_KEY: "lastUpdate", MODEL_KEY: "useModel",
+                    SIMILARITY_THRESHOLD: 0.7, 
+                    FUSE_CONFIDENCE_THRESHOLD: 0.25, 
+                    FUSE_SUGGESTION_THRESHOLD: 0.5,
+                    VAGUE_PHRASES: ['o que é', 'o que significa', 'para que serve', 'em que consiste', 'o que se entende por', 'como funciona', 'como é feito', 'como se faz', 'qual o processo de', 'qual o processo para', 'como ocorre', 'como se desenvolve', 'como acontece', 'o que fazer quando', 'como agir em caso de', 'qual a melhor forma de', 'como devo proceder para', 'o que devo fazer se', 'como lidar com', 'qual a diferença entre', 'qual a melhor opção', 'o que é melhor', 'o que escolher entre', 'qual a vantagem de', 'por que escolher', 'quando começa', 'quanto tempo leva para', 'desde quando', 'até quando', 'em que momento', 'por que', 'qual o motivo de', 'o que causa', 'qual a razão para', 'de onde vem', 'onde fica', 'onde posso encontrar', 'aonde devo ir para', 'em que local', 'onde acontece', 'quem é responsável por', 'quem faz', 'a quem devo procurar', 'quem pode me ajudar com', 'quanto custa', 'quantos são', 'qual o valor de', 'quanto devo pagar', 'qual a quantidade ideal', 'o que fazer se não', 'como resolver', 'por que não está funcionando', 'o que pode estar errado com', 'como consertar', 'como preencher', 'qual é a regra para', 'o que é obrigatório em', 'como seguir as instruções de', 'quais são os requisitos']
                 };
                 this.elements = { questionInput: document.getElementById('questionInput'), askButton: document.getElementById('askButton'), suggestButton: document.getElementById('suggestButton'), chatArea: document.getElementById('chatArea'), statusText: document.getElementById('statusText'), statusDot: document.querySelector('.status-dot'), autoUpdateStatus: document.getElementById('autoUpdateStatus'), updateBanner: document.getElementById('updateBanner'), refreshLink: document.getElementById('refreshLink'), modelLoadingProgress: document.getElementById('modelLoadingProgress'), modelStatusText: document.getElementById('modelStatusText'), modelProgressText: document.getElementById('modelProgressText'), modelProgressBar: document.getElementById('modelProgressBar'), advancedModeToggle: document.getElementById('advancedModeToggle'), customSuggestionModal: document.getElementById('customSuggestionModal'), suggestionTextarea: document.getElementById('suggestionTextarea'), submitSuggestionBtn: document.getElementById('submitSuggestionBtn'), cancelSuggestionBtn: document.getElementById('cancelSuggestionBtn') };
                 this.state = { db: null, fuse: null, qaData: [], lastUpdateHash: "", autoUpdateIntervalId: null, useModel: null, isModelLoaded: false, isModelLoading: false, isAdvancedMode: false, conversationHistory: [], lastUnansweredQuestion: null, isAwaitingSuggestion: false };
@@ -114,15 +116,37 @@
                 } catch (error) { console.error("Falha na inicialização crítica:", error); this._updateStatus("Erro crítico", 'error'); }
             }
             async _initDatabase() { return new Promise((resolve, reject) => { const request = indexedDB.open(this.config.DB_NAME, 3); request.onupgradeneeded = (e) => { const db = e.target.result; if (!db.objectStoreNames.contains(this.config.STORE_NAME)) { db.createObjectStore(this.config.STORE_NAME); } }; request.onsuccess = (e) => { this.state.db = e.target.result; resolve(); }; request.onerror = (e) => { console.error("Erro no IndexedDB:", e.target.error); reject(e.target.error); }; }); }
+            
             async _loadInitialData() {
                 try {
+                    // --- MUDANÇA: Busca a notificação primeiro ---
+                    const notification = await this._fetchNotification();
+                    const welcomeMessage = notification || "Olá! Sou o NeuroAssist. Como posso ajudar?";
+                    this._addBotMessage(welcomeMessage);
+
                     const { data, hash } = await this._loadFromDatabase();
                     if (data && data.length > 0) {
                         this.state.qaData = data; this.state.lastUpdateHash = hash; this._initSearchEngine();
-                        this._updateStatus(`Pronto`); this._addBotMessage("Olá! Sou o NeuroAssist. Como posso ajudar?");
+                        this._updateStatus(`Pronto`);
                     } else { await this._fetchAndUpdateData(); }
                 } catch (error) { console.error("Erro ao carregar dados iniciais:", error); this._updateStatus("Erro ao carregar", 'error'); await this._fetchAndUpdateData(); }
             }
+
+            // --- NOVA FUNÇÃO PARA BUSCAR A NOTIFICAÇÃO ---
+            async _fetchNotification() {
+                const url = `https://docs.google.com/spreadsheets/d/${this.config.SHEET_ID}/gviz/tq?tqx=out:csv&sheet=${encodeURIComponent(this.config.NOTIFICATION_SHEET_NAME)}&range=A1`;
+                try {
+                    const response = await fetch(url);
+                    if (!response.ok) return null;
+                    const csvText = await response.text();
+                    // O CSV de uma única célula vem com aspas, removemos
+                    return csvText.replace(/"/g, '').trim();
+                } catch (error) {
+                    console.error("Erro ao buscar notificação:", error);
+                    return null;
+                }
+            }
+            
             async _fetchSheetData() {
                 this._updateStatus("Atualizando...", 'loading');
                 const url = `https://docs.google.com/spreadsheets/d/${this.config.SHEET_ID}/gviz/tq?tqx=out:csv&sheet=${encodeURIComponent(this.config.SHEET_NAME)}&t=${Date.now()}`;
@@ -155,7 +179,16 @@
                 } catch (error) { this._addBotMessage("Ocorreu um erro durante a atualização."); }
             }
             _startAutoUpdate() { if (this.state.autoUpdateIntervalId) clearInterval(this.state.autoUpdateIntervalId); this.state.autoUpdateIntervalId = setInterval(async () => { try { const { updated } = await this._fetchSheetData(); if (updated) { this._showUpdateBanner(); } } catch (error) { console.error("Erro na verificação automática:", error); this.elements.autoUpdateStatus.textContent = `Erro na verificação (${new Date().toLocaleTimeString()})`; } }, this.config.AUTO_UPDATE_INTERVAL); this.elements.autoUpdateStatus.textContent = `Verificação a cada ${this.config.AUTO_UPDATE_INTERVAL / 60000} min.`; }
-            _initSearchEngine() { this.state.fuse = new Fuse(this.state.qaData, { keys: ['processedQuestion'], includeScore: true, threshold: 0.4, ignoreLocation: true, minMatchCharLength: 2 }); }
+            
+            _initSearchEngine() {
+                this.state.fuse = new Fuse(this.state.qaData, { 
+                    keys: ['processedQuestion'],
+                    includeScore: true, 
+                    threshold: 0.4,
+                    ignoreLocation: true, 
+                    minMatchCharLength: 3
+                });
+            }
             
             _processQuery(text) {
                 if (!text || typeof nlp === 'undefined') return text.toLowerCase().replace(/[^\w\s]/gi, '');
@@ -184,18 +217,17 @@
                 
                 this._showTypingIndicator();
                 
-                // --- NOVA LÓGICA PARA PERGUNTAS VAGAS ---
-                const isVague = this.config.VAGUE_PHRASES.includes(questionLower);
-                if (isVague) {
+                const vaguePhrase = this.config.VAGUE_PHRASES.find(phrase => questionLower.startsWith(phrase));
+                if (vaguePhrase && questionLower.length <= vaguePhrase.length + 5) {
                     const suggestions = this.state.qaData.filter(item => 
-                        item.question.toLowerCase().startsWith(questionLower)
-                    ).map(item => ({ item })); // Formata para o formato que a função de botões espera
-
+                        item.question.toLowerCase().startsWith(vaguePhrase)
+                    ).map(item => ({ item }));
                     if (suggestions.length > 0) {
                         this._addBotMessage(`Isso é um pouco vago. Você quis dizer alguma destas opções?`, suggestions.slice(0, 4));
                     } else {
                         this._addBotMessage(`Sua pergunta é muito genérica. Por favor, tente ser mais específico (ex: "${question} o cartão?").`);
                     }
+                    this._removeTypingIndicator();
                     return;
                 }
 
@@ -210,17 +242,17 @@
                         }
                         
                         if (this.state.isAdvancedMode && this.state.isModelLoaded) {
-                            const embeddingMatch = await this._findBestMatchWithEmbedding(question);
-                            if (embeddingMatch) { answerText = embeddingMatch.item.answer; }
+                            answerText = await this._findBestMatchWithEmbedding(question);
                         }
                         
                         if (!answerText) {
                             if (!this.state.fuse) { answerText = "A base de conhecimento não está pronta."; }
                             else {
                                 const results = this.state.fuse.search(processedQuery);
-                                if (results.length > 0 && results[0].score < this.config.FUSE_THRESHOLD) {
+                                
+                                if (results.length > 0 && results[0].score < this.config.FUSE_CONFIDENCE_THRESHOLD) {
                                     answerText = results[0].item.answer;
-                                } else if (results.length > 0) {
+                                } else if (results.length > 0 && results[0].score < this.config.FUSE_SUGGESTION_THRESHOLD) {
                                     answerText = "Não tenho certeza, mas talvez uma destas opções ajude:";
                                     answerOptions = results.slice(0, 3);
                                 } else {
@@ -238,11 +270,10 @@
                 }, 800);
             }
             
-            // O resto do código permanece o mesmo.
             _showAddQuestionButtons(){const messageDiv=this.elements.chatArea.querySelector('.message:last-child');if(!messageDiv)return;const buttonsContainer=document.createElement('div');buttonsContainer.className='action-buttons';const yesButton=document.createElement('button');yesButton.className='action-button yes';yesButton.textContent='Sim';yesButton.onclick=()=>{this._submitQuestionToForm(this.state.lastUnansweredQuestion);buttonsContainer.remove();};const noButton=document.createElement('button');noButton.className='action-button no';noButton.textContent='Não';noButton.onclick=()=>{this._addBotMessage("Entendido! Se precisar de algo mais, é só perguntar.");buttonsContainer.remove();};buttonsContainer.appendChild(yesButton);buttonsContainer.appendChild(noButton);messageDiv.appendChild(buttonsContainer);}
             async _submitQuestionToForm(question,fromCommand=false){if(!question)return;const formUrl='https://docs.google.com/forms/d/e/1FAIpQLSdK1OUPcBGtMRdWQz4JhyeQBuet-wXbEQ4CyAX07f6rHSvdyA/formResponse';const formData=new FormData();formData.append('entry.2126538361',question);try{await fetch(formUrl,{method:'POST',mode:'no-cors',body:formData});let confirmationMessage=fromCommand?"Obrigado! Sua sugestão foi enviada para análise.":"Obrigado por contribuir! Sua pergunta foi enviada para nossa equipe.";this._addBotMessage(confirmationMessage);}catch(error){console.error("Erro ao enviar pergunta:",error);this._addBotMessage("Houve um erro ao enviar sua pergunta.");}
             this.state.lastUnansweredQuestion=null;}
-            async _findBestMatchWithEmbedding(question){if(!this.state.isModelLoaded||!this.state.useModel)return null;try{const embeddings=await this.state.useModel.embed([question,...this.state.qaData.map(item=>item.question)]);const questionEmbedding=embeddings.slice(0,1);const answerEmbeddings=embeddings.slice(1);const scores=await tf.matMul(questionEmbedding,answerEmbeddings,false,true).data();let bestScore=-1,bestIndex=-1;scores.forEach((score,i)=>{if(score>bestScore){bestScore=score;bestIndex=i;}});return bestScore>this.config.SIMILARITY_THRESHOLD?{item:this.state.qaData[bestIndex],score:bestScore}:null;}catch(error){console.error("Erro ao usar embeddings:",error);return null;}}
+            async _findBestMatchWithEmbedding(question){if(!this.state.isModelLoaded||!this.state.useModel)return null;try{const embeddings=await this.state.useModel.embed([question,...this.state.qaData.map(item=>item.question)]);const questionEmbedding=embeddings.slice(0,1);const answerEmbeddings=embeddings.slice(1);const scores=await tf.matMul(questionEmbedding,answerEmbeddings,false,true).data();let bestScore=-1,bestIndex=-1;scores.forEach((score,i)=>{if(score>bestScore){bestScore=score;bestIndex=i;}});if (bestScore > this.config.SIMILARITY_THRESHOLD){const bestMatch = this.state.qaData[bestIndex];const userQueryTerms = this._processQuery(question).split(' '); const matchTerms = this._processQuery(bestMatch.question).split(' '); const commonTerms = userQueryTerms.filter(term => matchTerms.includes(term)); if (commonTerms.some(term => term.length > 2)) { return bestMatch.answer;}} return null;}catch(error){console.error("Erro ao usar embeddings:",error);return null;}}
             _handleCommand(command){const cmd=command.toLowerCase().split(' ')[0];switch(cmd){case'/ajuda':this._addBotMessage("Comandos disponíveis:\n`/ajuda`\n`/limpar`\n`/atualizar`\n`/debug`\n`/add` ou `/sugerir`");break;case'/limpar':this.elements.chatArea.innerHTML='';this._addBotMessage("Chat limpo!");break;case'/atualizar':this._addBotMessage("Iniciando verificação manual...");this._fetchAndUpdateData(true);break;case'/add':case'/sugerir':this.state.isAwaitingSuggestion=true;this._addBotMessage("Qual pergunta você gostaria de adicionar?");this.elements.questionInput.placeholder="Digite aqui a pergunta para sugerir...";this.elements.questionInput.focus();break;case'/debug':const headers=this.state.qaData.length>0?Object.keys(this.state.qaData[0]):['Nenhum dado'];let debugMessage=`--- Status da Base de Dados ---\n`;debugMessage+=`Total de P&R: ${this.state.qaData.length}\n`;debugMessage+=`Cabeçalhos: ${headers.join(', ')}\n\n`;debugMessage+=`--- Amostra (3 primeiras) ---\n`;if(this.state.qaData.length>0){this.state.qaData.slice(0,3).forEach((item,index)=>{debugMessage+=`[${index+1}] P: ${item.question}\n    R: ${item.answer}\n\n`;});}else{debugMessage+='Nenhum dado para exibir.';}
             this._addBotMessage(debugMessage);break;default:this._addBotMessage(`Comando "${cmd}" não reconhecido. Digite /ajuda.`);}}
             _setupEventListeners(){this.elements.askButton.addEventListener('click',()=>this._handleQuestion());this.elements.questionInput.addEventListener('keypress',(e)=>{if(e.key==='Enter')this._handleQuestion();});this.elements.advancedModeToggle.addEventListener('change',(e)=>{this.state.isAdvancedMode=e.target.checked;this._saveToDatabase(this.state.isAdvancedMode,this.config.MODEL_KEY);if(this.state.isAdvancedMode&&!this.state.isModelLoaded){this._startModelLoading();}
@@ -267,47 +298,5 @@
         }
         document.addEventListener('DOMContentLoaded', () => { window.neuroAssist = new NeuroAssist(); });
     </script>
-  <!-- Início do Código do Botão Flutuante -->
-<style>
-#fab-button{position:fixed;right:20px; top:50%; transform:translateY(-50%);width:60px;height:60px;background-color:#2575fc;border-radius:50%;border:none;color:white;box-shadow:0 6px 20px rgba(0,0,0,.2);cursor:pointer;z-index:9998;display:flex;justify-content:center;align-items:center;transition:all .3s;text-decoration:none;}
-#fab-button.active{z-index:10000;background-color:#e74c3c!important;transform:scale(1.1) rotate(360deg)!important}
-#fab-button:hover{transform:scale(1.1)}
-#fab-button svg{width:32px;height:32px;transition:opacity .3s,transform .3s}
-.fab-icon-close{display:none}
-#fab-button.active .fab-icon-open{opacity:0;transform:rotate(90deg);display:none}
-#fab-button.active .fab-icon-close{opacity:1;transform:rotate(0);display:block}
-#fab-modal{position:fixed;top:0;left:0;width:100%;height:100%;background-color:rgba(0,0,0,.7);z-index:9999;display:flex;justify-content:center;align-items:center;opacity:0;visibility:hidden;transition:opacity .4s,visibility .4s}
-#fab-modal.show{opacity:1;visibility:visible}
-.fab-modal-content{background-color:#fff;width:95vw;height:95vh;max-width:1400px;border-radius:15px;box-shadow:0 10px 30px rgba(0,0,0,.3);overflow:hidden;transform:scale(.8);transition:transform .4s cubic-bezier(.18,.89,.32,1.28)}
-#fab-modal.show .fab-modal-content{transform:scale(1)}
-.fab-modal-content iframe{width:100%;height:100%;border:none}
-</style>
-<button id="fab-button"><span class="fab-icon-open"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="currentColor"><path d="M14 17H4v2h10v-2zm6-8H4v2h16V9zM4 15h16v-2H4v2zM4 5v2h16V5H4z"/></svg></span><span class="fab-icon-close"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="currentColor"><path d="M19 6.41L17.59 5 12 10.59 6.41 5 5 6.41 10.59 12 5 17.59 6.41 19 12 13.41 17.59 19 19 17.59 13.41 12z"/></svg></span></button>
-<div id="fab-modal"><div class="fab-modal-content"><iframe src="https://franklinsiltol.github.io/dashdelink/" title="Conteúdo"></iframe></div></div>
-<script>
-(function(){
-    const btn=document.getElementById('fab-button'),modal=document.getElementById('fab-modal');
-    if(!btn||!modal)return;
-    const closeAction=()=>{
-        modal.classList.remove('show');
-        btn.classList.remove('active');
-        const content=modal.querySelector('.fab-modal-content');
-        if(content) content.style.transform='scale(0.8)';
-    };
-    btn.addEventListener('click',()=>{
-        const isActive=btn.classList.contains('active');
-        if(isActive){
-            closeAction();
-        }else{
-            modal.classList.add('show');
-            btn.classList.add('active');
-            const content=modal.querySelector('.fab-modal-content');
-            if(content) content.style.transform='scale(1)';
-        }
-    });
-    modal.addEventListener('click',e=>{if(e.target===modal)closeAction()});
-})()
-</script>
-<!-- Fim do Código -->
-  </body>
+</body>
 </html>
