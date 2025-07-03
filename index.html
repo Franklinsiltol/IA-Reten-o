@@ -59,8 +59,34 @@
         .dashboard-modal-content { background-color: var(--background-main); width: 90vw; height: 90vh; max-width: 1400px; border-radius: 16px; box-shadow: 0 10px 30px rgba(0,0,0,0.2); overflow: hidden; position: relative; transform: scale(0.95); animation: zoomInModal 0.3s ease forwards; }
         @keyframes zoomInModal { from { transform: scale(0.95); } to { transform: scale(1); } }
         .dashboard-modal-content iframe { width: 100%; height: 100%; border: none; }
-        #closeDashboardBtn { position: absolute; top: 12px; right: 12px; width: 36px; height: 36px; background-color: rgba(0,0,0,0.2); color: white; border: none; border-radius: 50%; cursor: pointer; display: flex; align-items: center; justify-content: center; z-index: 10; transition: all 0.2s ease; }
-        #closeDashboardBtn:hover { background-color: rgba(0,0,0,0.4); transform: scale(1.1); }
+        
+        /* --- CSS MODIFICADO --- */
+        #closeDashboardBtn {
+            position: absolute; /* Posição absoluta relativa ao modal (#dashboardModal) */
+            bottom: 20px; /* Distância da parte inferior da tela */
+            left: 50%; /* Centraliza horizontalmente */
+            transform: translateX(-50%); /* Ajuste fino para centralização perfeita */
+
+            /* Novo visual para destaque */
+            width: 48px;
+            height: 48px;
+            background-color: var(--background-main);
+            color: var(--text-primary);
+            border: 1px solid var(--border-color);
+            box-shadow: 0 4px 15px rgba(0,0,0,0.2);
+
+            border-radius: 50%;
+            cursor: pointer;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            z-index: 10;
+            transition: all 0.2s ease;
+        }
+        #closeDashboardBtn:hover {
+            background-color: var(--background-secondary);
+            transform: translateX(-50%) scale(1.1); /* Mantém a translação ao aumentar a escala */
+        }
         .notification-banner { background-color: #f8f9fa; border-left: 4px solid var(--primary); padding: 0.75rem 1rem; margin: 0.5rem 0; border-radius: 4px; animation: slideIn 0.3s ease-out; }
         @keyframes slideIn { from { opacity: 0; transform: translateY(-20px); } to { opacity: 1; transform: translateY(0); } }
     </style>
@@ -103,19 +129,20 @@
     
     <div id="customSuggestionModal" class="custom-modal"><div class="custom-modal-content"><h3>Sugerir uma pergunta</h3><p>Não encontrou o que procurava? Ajude-nos a melhorar! Envie sua pergunta e ela será analisada por nossa equipe para ser adicionada à base de conhecimento.</p><textarea id="suggestionTextarea" placeholder="Escreva aqui a pergunta que você não encontrou..."></textarea><div class="modal-actions"><button id="cancelSuggestionBtn" class="action-button no">Cancelar</button><button id="submitSuggestionBtn" class="action-button yes">Enviar sugestão</button></div></div></div>
 
+    <!-- --- HTML MODIFICADO --- -->
     <div id="dashboardModal">
         <div class="dashboard-modal-content">
-            <button id="closeDashboardBtn" title="Fechar">
-                <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="currentColor"><path d="M19 6.41L17.59 5 12 10.59 6.41 5 5 6.41 10.59 12 5 17.59 6.41 19 12 13.41 17.59 19 19 17.59 13.41 12z"/></svg>
-            </button>
             <iframe src="https://franklinsiltol.github.io/dashdelink/" title="Dashboard de Links"></iframe>
         </div>
+        <!-- Botão movido para fora do "content" -->
+        <button id="closeDashboardBtn" title="Fechar">
+            <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="currentColor"><path d="M19 6.41L17.59 5 12 10.59 6.41 5 5 6.41 10.59 12 5 17.59 6.41 19 12 13.41 17.59 19 19 17.59 13.41 12z"/></svg>
+        </button>
     </div>
 
     <script>
         class NeuroAssist {
             constructor() {
-                // --- CÓDIGO CORRIGIDO: O CONSTRUCTOR ESTÁ COMPLETO AGORA ---
                 this.config = {
                     SHEET_ID: "1pgoYg76gutqLnOlsk3mN40HfzN9n-x_6oJQcfkZEBzY", 
                     SHEET_NAME: "Retenção", 
